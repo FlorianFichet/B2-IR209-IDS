@@ -9,5 +9,5 @@ Project of implementing an IDS (Intrusion Dectection System) for the development
 Notes:
 - The project is meant to run on kali linux.
 - You need to install libpcap-dev (`sudo apt install libpcap-dev`)
-- Command to build the program : gcc −Wall −o ids main.c populate.c −lpcap`
+- Command to build the program : `gcc −Wall −o ids main.c populate.c −lpcap`
 - You need root privileges to run the program
