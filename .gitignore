@@ -1,0 +1,6 @@
+main
+program
+ids
+*.out
+*.o
+*.exe
