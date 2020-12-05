@@ -1,26 +1,51 @@
 #include "populate.h"
 
+
+#define SNIFFER_ERROR_HANDLE_NOT_CREATED 1
+#define SNIFFER_ERROR_HANDLE_NOT_ACTIVATED 2
+
+
 struct ids_rule {
 } typedef Rule;
 
 void rule_matcher(Rule *rules_ds, ETHER_Frame *frame) {}
-
 void read_rules(FILE *file, Rule *rules_ds, int count) {}
-
 void my_packet_handler(u_char *args, const struct pcap_pkthdr *header,
                        const u_char *packet) {}
+int get_activated_handle(pcap_t** handle_ptr, char device[], char error_buffer[]);
+
 
 int main(int argc, char *argv[]) {
+    int error_code = 0;
+    int total_packet_count = 10;
     char *device = "eth0";
     char error_buffer[PCAP_ERRBUF_SIZE];
     pcap_t *handle;
 
-    handle = pcap_create(device, error_buffer);
-    pcap_set_timeout(handle, 10);
-    pcap_activate(handle);
-    int total_packet_count = 10;
+    // 1. parse the command line arguments
 
+    // 2. initialize pcap (the handle is used to identify the session)
+    error_code = get_activated_handle(&handle, device, error_buffer);
+    if (error_code != 0) {
+        return error_code;
+    }
+    
     pcap_loop(handle, total_packet_count, my_packet_handler, NULL);
 
+    return 0;
+}
+
+
+// get the activated handle into 'handle', it is opened on 'device',
+// returns 0 on success
+int get_activated_handle(pcap_t** handle_ptr, char device[], char error_buffer[]) {
+    *handle_ptr = pcap_create(device, error_buffer);
+    if (*handle_ptr == NULL) {
+        pcap_close(*handle_ptr);
+        return SNIFFER_ERROR_HANDLE_NOT_CREATED;
+    }
+    if (pcap_activate(*handle_ptr) != 0) {
+        return SNIFFER_ERROR_HANDLE_NOT_ACTIVATED;
+    }
     return 0;
 }
