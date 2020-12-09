@@ -1,15 +1,12 @@
 #include "populate.h"
+#include "rules.h"
 
 
 #define SNIFFER_ERROR_HANDLE_NOT_CREATED 1
 #define SNIFFER_ERROR_HANDLE_NOT_ACTIVATED 2
 
 
-struct ids_rule {
-} typedef Rule;
-
 void rule_matcher(Rule *rules_ds, ETHER_Frame *frame) {}
-void read_rules(FILE *file, Rule *rules_ds, int count) {}
 void my_packet_handler(u_char *args, const struct pcap_pkthdr *header,
                        const u_char *packet) {}
 int get_activated_handle(pcap_t** handle_ptr, char device[], char error_buffer[]);
