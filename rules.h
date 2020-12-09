@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <stdio.h>
 
 enum rule_action {
@@ -16,7 +17,7 @@ enum rule_protocol {
     ip,
     http,
     ftp,
-    tls, // (this includes ssl)
+    tls,  // (this includes ssl)
     smb,
     dns,
     dcerpc,
@@ -38,11 +39,21 @@ enum rule_protocol {
     sip,
     http2,
 } typedef RuleProtocol;
+struct rule_ip_ {
+    bool negation;
+    int ip;        // -1 => any
+    char netmask;  // CIDR notation (ip/xx)
+} typedef RuleIp;
 
 
 struct ids_rule {
     RuleAction action;
     RuleProtocol protocol;
+
+    RuleIp *sources;  // there could be multiple sources
+    int nb_sources;
+    RuleIp *destinations;
+    int nb_destinations;
 } typedef Rule;
 
 
