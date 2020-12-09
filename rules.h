@@ -48,6 +48,10 @@ struct rule_port {
     bool negation;
     int port;  // -1 => any
 } typedef RulePort;
+enum direction {
+    forward;          // ->
+    both_directions;  // <>
+} typedef Direction;
 
 
 struct ids_rule {
@@ -63,6 +67,8 @@ struct ids_rule {
     int nb_source_ports;
     RulePort *destination_ports;
     int nb_destination_ports;
+
+    Direction direction;
 } typedef Rule;
 
 
