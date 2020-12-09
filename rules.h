@@ -68,13 +68,13 @@ struct ids_rule {
     RuleIp *destinations;
     int nb_destinations;
 
-    RulePort *source_ports;  // there could be multiple sources
+    RulePort *source_ports;  // there could be multiple ports
     int nb_source_ports;
     RulePort *destination_ports;
     int nb_destination_ports;
 
     RuleDirection direction;
-    RuleOption *options;
+    RuleOption *options;  // there could be multiple options
     int nb_options;
 } typedef Rule;
 
