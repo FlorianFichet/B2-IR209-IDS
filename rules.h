@@ -44,6 +44,10 @@ struct rule_ip_ {
     int ip;        // -1 => any
     char netmask;  // CIDR notation (ip/xx)
 } typedef RuleIp;
+struct rule_port {
+    bool negation;
+    int port;  // -1 => any
+} typedef RulePort;
 
 
 struct ids_rule {
@@ -54,6 +58,11 @@ struct ids_rule {
     int nb_sources;
     RuleIp *destinations;
     int nb_destinations;
+
+    RulePort *source_ports;  // there could be multiple sources
+    int nb_source_ports;
+    RulePort *destination_ports;
+    int nb_destination_ports;
 } typedef Rule;
 
 
