@@ -1,4 +1,18 @@
+#include <stdio.h>
+
+enum rule_action {
+    alert,
+    pass,
+    drop,
+    reject,
+    rejectsrc,
+    rejectdst,
+    rejectboth,
+} typedef RuleAction;
+
+
 struct ids_rule {
+    RuleAction action;
 } typedef Rule;
 
 
