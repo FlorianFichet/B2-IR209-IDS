@@ -39,7 +39,7 @@ enum rule_protocol {
     sip,
     http2,
 } typedef RuleProtocol;
-struct rule_ip_ {
+struct rule_ip {
     bool negation;
     int ip;        // -1 => any
     char netmask;  // CIDR notation (ip/xx)
