@@ -29,7 +29,6 @@ void add_token(char *token, int token_size, Tokens *tokens) {
     }
 }
 
-
 // this function tokenizes the file that contains the rules, i.e. it separates
 // every word, parentheses, etc. into separate strings for later analysis
 void tokenize_rules(FILE *file, Tokens *tokens) {
@@ -88,7 +87,39 @@ void tokenize_rules(FILE *file, Tokens *tokens) {
 }
 
 
-void extract_rules(Rule *rules, int *nb_rules, Tokens *tokens) {}
+void increase_size_rules(Rule *rules, int *nb_rules) {
+    *nb_rules++;
+    rules = realloc(rules, *nb_rules * sizeof(Rule));
+}
+void get_rule_action(Rule *rule, Tokens *tokens, int *i) {}
+void get_rule_protocol(Rule *rule, Tokens *tokens, int *i) {}
+void get_rule_source_ip(Rule *rule, Tokens *tokens, int *i) {}
+void get_rule_source_port(Rule *rule, Tokens *tokens, int *i) {}
+void get_rule_direction(Rule *rule, Tokens *tokens, int *i) {}
+void get_rule_destination_ip(Rule *rule, Tokens *tokens, int *i) {}
+void get_rule_destination_port(Rule *rule, Tokens *tokens, int *i) {}
+void get_rule_options(Rule *rule, Tokens *tokens, int *i) {}
+
+void extract_rules(Rule *rules, int *nb_rules, Tokens *tokens) {
+    int i = 0;
+    while (i < tokens->nb_tokens) {
+        // add an empty rule to the list
+        increase_size_rules(rules, nb_rules);
+        Rule *rule = &rules[*nb_rules - 1];
+
+        get_rule_action(rule, tokens, &i);
+        get_rule_protocol(rule, tokens, &i);
+        get_rule_source_ip(rule, tokens, &i);
+        get_rule_source_port(rule, tokens, &i);
+        get_rule_direction(rule, tokens, &i);
+        get_rule_destination_ip(rule, tokens, &i);
+        get_rule_destination_port(rule, tokens, &i);
+        get_rule_options(rule, tokens, &i);
+
+        // NOTE: no need to increase i (i++) as it is incremented in the
+        // functions used above
+    }
+}
 
 
 void read_rules(FILE *file, Rule *rules_ds, int *count) {
