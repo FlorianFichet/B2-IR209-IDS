@@ -2,42 +2,42 @@
 #include <stdio.h>
 
 enum rule_action {
-    alert,
-    pass,
-    drop,
-    reject,
-    rejectsrc,
-    rejectdst,
-    rejectboth,
+    Alert,
+    Pass,
+    Drop,
+    Reject,
+    Rejectsrc,
+    Rejectdst,
+    Rejectboth,
 } typedef RuleAction;
 enum rule_protocol {
-    tcp,
-    udp,
-    icmp,
-    ip,
-    http,
-    ftp,
-    tls,  // (this includes ssl)
-    smb,
-    dns,
-    dcerpc,
-    ssh,
-    smtp,
-    imap,
-    modbus,
-    dnp3,
-    enip,
-    nfs,
-    ikev2,
-    krb5,
-    ntp,
-    dhcp,
-    rfb,
-    rdp,
-    snmp,
-    tftp,
-    sip,
-    http2,
+    Tcp,
+    Udp,
+    Icmp,
+    Ip,
+    Http,
+    Ftp,
+    Tls,  // (this includes ssl)
+    Smb,
+    Dns,
+    Dcerpc,
+    Ssh,
+    Smtp,
+    Imap,
+    Modbus,
+    Dnp3,
+    Enip,
+    Nfs,
+    Ikev2,
+    Krb5,
+    Ntp,
+    Dhcp,
+    Rfb,
+    Rdp,
+    Snmp,
+    Tftp,
+    Sip,
+    Http2,
 } typedef RuleProtocol;
 struct rule_ip {
     bool negation;
@@ -49,8 +49,8 @@ struct rule_port {
     int port;  // -1 => any
 } typedef RulePort;
 enum rule_direction {
-    forward,          // ->
-    both_directions,  // <>
+    Forward,          // ->
+    Both_directions,  // <>
 } typedef RuleDirection;
 struct rule_option {
     char *keyword;
