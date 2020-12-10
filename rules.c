@@ -1,6 +1,7 @@
 #include "rules.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 
 // struct that can contain every token
@@ -87,68 +88,69 @@ void tokenize_rules(FILE *file, Tokens *tokens) {
 }
 
 
-void increase_size_rules(Rule *rules, int *nb_rules) {
-    *nb_rules++;
-    rules = realloc(rules, *nb_rules * sizeof(Rule));
+void increase_size_rules(Rule **rules, int *nb_rules) {
+    (*nb_rules)++;
+    int size_of_rule = sizeof(Rule);
+    (*rules) = realloc((*rules), (*nb_rules) * size_of_rule);
 }
 int get_rule_action(Rule *rule, Tokens *tokens, int *i) {
-    if (strcmp(tokens->tokens[i], "alert")) {
+    if (strcmp(tokens->tokens[*i], "alert") == 0) {
         rule->action = Alert;
-    } else if (strcmp(tokens->tokens[i], "pass")) {
+    } else if (strcmp(tokens->tokens[*i], "pass") == 0) {
         rule->action = Pass;
-    } else if (strcmp(tokens->tokens[i], "drop")) {
+    } else if (strcmp(tokens->tokens[*i], "drop") == 0) {
         rule->action = Drop;
-    } else if (strcmp(tokens->tokens[i], "reject")) {
+    } else if (strcmp(tokens->tokens[*i], "reject") == 0) {
         rule->action = Reject;
-    } else if (strcmp(tokens->tokens[i], "rejectsrc")) {
+    } else if (strcmp(tokens->tokens[*i], "rejectsrc") == 0) {
         rule->action = Rejectsrc;
-    } else if (strcmp(tokens->tokens[i], "rejectdst")) {
+    } else if (strcmp(tokens->tokens[*i], "rejectdst") == 0) {
         rule->action = Rejectdst;
-    } else if (strcmp(tokens->tokens[i], "rejectboth")) {
+    } else if (strcmp(tokens->tokens[*i], "rejectboth") == 0) {
         rule->action = Rejectboth;
     }
     // else {
     //     return ERROR_ACTION_EXPECTED;
     // }
 
-    *i++;
+    (*i)++;
     return 0;
 }
-void get_rule_protocol(Rule *rule, Tokens *tokens, int *i) {
-    if (strcmp(tokens->tokens[i], "tcp")) {
+int get_rule_protocol(Rule *rule, Tokens *tokens, int *i) {
+    if (strcmp(tokens->tokens[*i], "tcp") == 0) {
         rule->protocol = Tcp;
-    } else if (strcmp(tokens->tokens[i], "udp")) {
+    } else if (strcmp(tokens->tokens[*i], "udp") == 0) {
         rule->protocol = Udp;
-    } else if (strcmp(tokens->tokens[i], "icmp")) {
+    } else if (strcmp(tokens->tokens[*i], "icmp") == 0) {
         rule->protocol = Icmp;
-    } else if (strcmp(tokens->tokens[i], "ip")) {
+    } else if (strcmp(tokens->tokens[*i], "ip") == 0) {
         rule->protocol = Ip;
-    } else if (strcmp(tokens->tokens[i], "http")) {
+    } else if (strcmp(tokens->tokens[*i], "http") == 0) {
         rule->protocol = Http;
-    } else if (strcmp(tokens->tokens[i], "tls")) {
+    } else if (strcmp(tokens->tokens[*i], "tls") == 0) {
         rule->protocol = Tls;
-    } else if (strcmp(tokens->tokens[i], "ssh")) {
+    } else if (strcmp(tokens->tokens[*i], "ssh") == 0) {
         rule->protocol = Ssh;
-    } else if (strcmp(tokens->tokens[i], "ftp")) {
+    } else if (strcmp(tokens->tokens[*i], "ftp") == 0) {
         rule->protocol = Ftp;
-    } else if (strcmp(tokens->tokens[i], "tftp")) {
+    } else if (strcmp(tokens->tokens[*i], "tftp") == 0) {
         rule->protocol = Tftp;
-    } else if (strcmp(tokens->tokens[i], "smtp")) {
+    } else if (strcmp(tokens->tokens[*i], "smtp") == 0) {
         rule->protocol = Smtp;
-    } else if (strcmp(tokens->tokens[i], "imap")) {
+    } else if (strcmp(tokens->tokens[*i], "imap") == 0) {
         rule->protocol = Imap;
-    } else if (strcmp(tokens->tokens[i], "ntp")) {
+    } else if (strcmp(tokens->tokens[*i], "ntp") == 0) {
         rule->protocol = Ntp;
-    } else if (strcmp(tokens->tokens[i], "dhcp")) {
+    } else if (strcmp(tokens->tokens[*i], "dhcp") == 0) {
         rule->protocol = Dhcp;
-    } else if (strcmp(tokens->tokens[i], "dns")) {
+    } else if (strcmp(tokens->tokens[*i], "dns") == 0) {
         rule->protocol = Dns;
     }
     // else {
     //     return ERROR_PROTOCOL_EXPECTED;
     // }
 
-    *i++;
+    (*i)++;
     return 0;
 }
 void get_rule_source_ip(Rule *rule, Tokens *tokens, int *i) {}
@@ -162,8 +164,8 @@ void extract_rules(Rule *rules, int *nb_rules, Tokens *tokens) {
     int i = 0;
     while (i < tokens->nb_tokens) {
         // add an empty rule to the list
-        increase_size_rules(rules, nb_rules);
-        Rule *rule = &rules[*nb_rules - 1];
+        increase_size_rules(&rules, nb_rules);
+        Rule *rule = &rules[(*nb_rules) - 1];
 
         get_rule_action(rule, tokens, &i);
         get_rule_protocol(rule, tokens, &i);

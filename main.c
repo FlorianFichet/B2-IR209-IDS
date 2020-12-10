@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
     }
 
     Rule *rules;
-    int nb_rules;
+    int nb_rules = 0;
     read_rules(file, rules, &nb_rules);
 
     pcap_loop(handle, total_packet_count, my_packet_handler, NULL);
