@@ -93,72 +93,86 @@ void increase_size_rules(Rule **rules, int *nb_rules) {
     int size_of_rule = sizeof(Rule);
     (*rules) = realloc((*rules), (*nb_rules) * size_of_rule);
 }
-int get_rule_action(Rule *rule, Tokens *tokens, int *i) {
-    if (strcmp(tokens->tokens[*i], "alert") == 0) {
+int get_rule_action(Rule *rule, Tokens *tokens, int *i_ptr) {
+    if (strcmp(tokens->tokens[*i_ptr], "alert") == 0) {
         rule->action = Alert;
-    } else if (strcmp(tokens->tokens[*i], "pass") == 0) {
+    } else if (strcmp(tokens->tokens[*i_ptr], "pass") == 0) {
         rule->action = Pass;
-    } else if (strcmp(tokens->tokens[*i], "drop") == 0) {
+    } else if (strcmp(tokens->tokens[*i_ptr], "drop") == 0) {
         rule->action = Drop;
-    } else if (strcmp(tokens->tokens[*i], "reject") == 0) {
+    } else if (strcmp(tokens->tokens[*i_ptr], "reject") == 0) {
         rule->action = Reject;
-    } else if (strcmp(tokens->tokens[*i], "rejectsrc") == 0) {
+    } else if (strcmp(tokens->tokens[*i_ptr], "rejectsrc") == 0) {
         rule->action = Rejectsrc;
-    } else if (strcmp(tokens->tokens[*i], "rejectdst") == 0) {
+    } else if (strcmp(tokens->tokens[*i_ptr], "rejectdst") == 0) {
         rule->action = Rejectdst;
-    } else if (strcmp(tokens->tokens[*i], "rejectboth") == 0) {
+    } else if (strcmp(tokens->tokens[*i_ptr], "rejectboth") == 0) {
         rule->action = Rejectboth;
     }
     // else {
     //     return ERROR_ACTION_EXPECTED;
     // }
 
-    (*i)++;
+    (*i_ptr)++;
     return 0;
 }
-int get_rule_protocol(Rule *rule, Tokens *tokens, int *i) {
-    if (strcmp(tokens->tokens[*i], "tcp") == 0) {
+int get_rule_protocol(Rule *rule, Tokens *tokens, int *i_ptr) {
+    if (strcmp(tokens->tokens[*i_ptr], "tcp") == 0) {
         rule->protocol = Tcp;
-    } else if (strcmp(tokens->tokens[*i], "udp") == 0) {
+    } else if (strcmp(tokens->tokens[*i_ptr], "udp") == 0) {
         rule->protocol = Udp;
-    } else if (strcmp(tokens->tokens[*i], "icmp") == 0) {
+    } else if (strcmp(tokens->tokens[*i_ptr], "icmp") == 0) {
         rule->protocol = Icmp;
-    } else if (strcmp(tokens->tokens[*i], "ip") == 0) {
+    } else if (strcmp(tokens->tokens[*i_ptr], "ip") == 0) {
         rule->protocol = Ip;
-    } else if (strcmp(tokens->tokens[*i], "http") == 0) {
+    } else if (strcmp(tokens->tokens[*i_ptr], "http") == 0) {
         rule->protocol = Http;
-    } else if (strcmp(tokens->tokens[*i], "tls") == 0) {
+    } else if (strcmp(tokens->tokens[*i_ptr], "tls") == 0) {
         rule->protocol = Tls;
-    } else if (strcmp(tokens->tokens[*i], "ssh") == 0) {
+    } else if (strcmp(tokens->tokens[*i_ptr], "ssh") == 0) {
         rule->protocol = Ssh;
-    } else if (strcmp(tokens->tokens[*i], "ftp") == 0) {
+    } else if (strcmp(tokens->tokens[*i_ptr], "ftp") == 0) {
         rule->protocol = Ftp;
-    } else if (strcmp(tokens->tokens[*i], "tftp") == 0) {
+    } else if (strcmp(tokens->tokens[*i_ptr], "tftp") == 0) {
         rule->protocol = Tftp;
-    } else if (strcmp(tokens->tokens[*i], "smtp") == 0) {
+    } else if (strcmp(tokens->tokens[*i_ptr], "smtp") == 0) {
         rule->protocol = Smtp;
-    } else if (strcmp(tokens->tokens[*i], "imap") == 0) {
+    } else if (strcmp(tokens->tokens[*i_ptr], "imap") == 0) {
         rule->protocol = Imap;
-    } else if (strcmp(tokens->tokens[*i], "ntp") == 0) {
+    } else if (strcmp(tokens->tokens[*i_ptr], "ntp") == 0) {
         rule->protocol = Ntp;
-    } else if (strcmp(tokens->tokens[*i], "dhcp") == 0) {
+    } else if (strcmp(tokens->tokens[*i_ptr], "dhcp") == 0) {
         rule->protocol = Dhcp;
-    } else if (strcmp(tokens->tokens[*i], "dns") == 0) {
+    } else if (strcmp(tokens->tokens[*i_ptr], "dns") == 0) {
         rule->protocol = Dns;
     }
     // else {
     //     return ERROR_PROTOCOL_EXPECTED;
     // }
 
-    (*i)++;
+    (*i_ptr)++;
     return 0;
 }
-void get_rule_source_ip(Rule *rule, Tokens *tokens, int *i) {}
-void get_rule_source_port(Rule *rule, Tokens *tokens, int *i) {}
-void get_rule_direction(Rule *rule, Tokens *tokens, int *i) {}
-void get_rule_destination_ip(Rule *rule, Tokens *tokens, int *i) {}
-void get_rule_destination_port(Rule *rule, Tokens *tokens, int *i) {}
-void get_rule_options(Rule *rule, Tokens *tokens, int *i) {}
+// get an ip
+int get_str_ip_to_int(char *ip_str, int *ip_int) {
+    //
+
+    return 0;
+}
+int get_rule_source_ip(Rule *rule, Tokens *tokens, int *i_ptr) {
+    // check 'any'
+    // check '!'
+    // check '['
+}
+int get_rule_source_port(Rule *rule, Tokens *tokens, int *i_ptr) {
+    // check 'any'
+    // check '!'
+    // check '['
+}
+int get_rule_direction(Rule *rule, Tokens *tokens, int *i_ptr) {}
+int get_rule_destination_ip(Rule *rule, Tokens *tokens, int *i_ptr) {}
+int get_rule_destination_port(Rule *rule, Tokens *tokens, int *i_ptr) {}
+int get_rule_options(Rule *rule, Tokens *tokens, int *i_ptr) {}
 
 void extract_rules(Rule *rules, int *nb_rules, Tokens *tokens) {
     int i = 0;
