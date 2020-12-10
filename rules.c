@@ -114,7 +114,43 @@ int get_rule_action(Rule *rule, Tokens *tokens, int *i) {
     *i++;
     return 0;
 }
-void get_rule_protocol(Rule *rule, Tokens *tokens, int *i) {}
+void get_rule_protocol(Rule *rule, Tokens *tokens, int *i) {
+    if (strcmp(tokens->tokens[i], "tcp")) {
+        rule->protocol = Tcp;
+    } else if (strcmp(tokens->tokens[i], "udp")) {
+        rule->protocol = Udp;
+    } else if (strcmp(tokens->tokens[i], "icmp")) {
+        rule->protocol = Icmp;
+    } else if (strcmp(tokens->tokens[i], "ip")) {
+        rule->protocol = Ip;
+    } else if (strcmp(tokens->tokens[i], "http")) {
+        rule->protocol = Http;
+    } else if (strcmp(tokens->tokens[i], "tls")) {
+        rule->protocol = Tls;
+    } else if (strcmp(tokens->tokens[i], "ssh")) {
+        rule->protocol = Ssh;
+    } else if (strcmp(tokens->tokens[i], "ftp")) {
+        rule->protocol = Ftp;
+    } else if (strcmp(tokens->tokens[i], "tftp")) {
+        rule->protocol = Tftp;
+    } else if (strcmp(tokens->tokens[i], "smtp")) {
+        rule->protocol = Smtp;
+    } else if (strcmp(tokens->tokens[i], "imap")) {
+        rule->protocol = Imap;
+    } else if (strcmp(tokens->tokens[i], "ntp")) {
+        rule->protocol = Ntp;
+    } else if (strcmp(tokens->tokens[i], "dhcp")) {
+        rule->protocol = Dhcp;
+    } else if (strcmp(tokens->tokens[i], "dns")) {
+        rule->protocol = Dns;
+    }
+    // else {
+    //     return ERROR_PROTOCOL_EXPECTED;
+    // }
+
+    *i++;
+    return 0;
+}
 void get_rule_source_ip(Rule *rule, Tokens *tokens, int *i) {}
 void get_rule_source_port(Rule *rule, Tokens *tokens, int *i) {}
 void get_rule_direction(Rule *rule, Tokens *tokens, int *i) {}
