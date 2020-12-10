@@ -91,7 +91,29 @@ void increase_size_rules(Rule *rules, int *nb_rules) {
     *nb_rules++;
     rules = realloc(rules, *nb_rules * sizeof(Rule));
 }
-void get_rule_action(Rule *rule, Tokens *tokens, int *i) {}
+int get_rule_action(Rule *rule, Tokens *tokens, int *i) {
+    if (strcmp(tokens->tokens[i], "alert")) {
+        rule->action = Alert;
+    } else if (strcmp(tokens->tokens[i], "pass")) {
+        rule->action = Pass;
+    } else if (strcmp(tokens->tokens[i], "drop")) {
+        rule->action = Drop;
+    } else if (strcmp(tokens->tokens[i], "reject")) {
+        rule->action = Reject;
+    } else if (strcmp(tokens->tokens[i], "rejectsrc")) {
+        rule->action = Rejectsrc;
+    } else if (strcmp(tokens->tokens[i], "rejectdst")) {
+        rule->action = Rejectdst;
+    } else if (strcmp(tokens->tokens[i], "rejectboth")) {
+        rule->action = Rejectboth;
+    }
+    // else {
+    //     return ERROR_ACTION_EXPECTED;
+    // }
+
+    *i++;
+    return 0;
+}
 void get_rule_protocol(Rule *rule, Tokens *tokens, int *i) {}
 void get_rule_source_ip(Rule *rule, Tokens *tokens, int *i) {}
 void get_rule_source_port(Rule *rule, Tokens *tokens, int *i) {}
