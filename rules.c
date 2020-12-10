@@ -93,6 +93,53 @@ void increase_size_rules(Rule **rules, int *nb_rules) {
     int size_of_rule = sizeof(Rule);
     (*rules) = realloc((*rules), (*nb_rules) * size_of_rule);
 }
+void fill_in_char_buffer(char *buffer, int length_buffer, char c) {
+    for (int i = 0; i < length_buffer; i++) {
+        buffer[i] = c;
+    }
+}
+// get an ip int from a string representation, e.g. "255.255.255.255"
+// => 4294967295
+int get_int_ip_from_str(char *ip_str, int *ip_int) {
+    char buffer[4] = "";
+    fill_in_char_buffer(buffer, 4, '\0');
+    int ip_byte = 3;  // 3-0
+
+    int index_buffer = 0;
+
+    int i = 0;
+
+    while (ip_str[i] != '\0') {
+        if (ip_str[i] == '.') {
+            // 1. get the number from the buffer
+            int byte = atoi(buffer);
+            // 2. add it to ip_int
+            if (ip_byte == 3) {
+                (*ip_int) += byte * 256 * 256 * 256;
+            }
+            if (ip_byte == 2) {
+                (*ip_int) += byte * 256 * 256;
+            }
+            if (ip_byte == 1) {
+                (*ip_int) += byte * 256;
+            }
+            // 3. decrement ip_byte, reinitialize the buffer/index_buffer
+            ip_byte--;
+            index_buffer = 0;
+            fill_in_char_buffer(buffer, 4, '\0');
+        } else {
+            // add the digit to the buffer
+            buffer[index_buffer] = ip_str[i];
+            index_buffer++;
+        }
+    }
+    // 1. get the number from the buffer
+    int byte = atoi(buffer);
+    // 2. add it to ip_int
+    (*ip_int) += byte;
+
+    return 0;
+}
 int get_rule_action(Rule *rule, Tokens *tokens, int *i_ptr) {
     if (strcmp(tokens->tokens[*i_ptr], "alert") == 0) {
         rule->action = Alert;
@@ -151,12 +198,6 @@ int get_rule_protocol(Rule *rule, Tokens *tokens, int *i_ptr) {
     // }
 
     (*i_ptr)++;
-    return 0;
-}
-// get an ip
-int get_str_ip_to_int(char *ip_str, int *ip_int) {
-    //
-
     return 0;
 }
 int get_rule_source_ip(Rule *rule, Tokens *tokens, int *i_ptr) {
