@@ -8,6 +8,7 @@ struct rules_tokens {
     char **tokens;
     int nb_tokens;
 } typedef Tokens;
+
 // function that adds a token to the 'Tokens' struct
 void add_token(char *token, int token_size, Tokens *tokens) {
     // resize : (char**) tokens->tokens
@@ -87,7 +88,21 @@ void tokenize_rules(FILE *file, Tokens *tokens) {
 }
 
 
+void extract_rules(Rule *rules, int *nb_rules, Tokens *tokens) {}
+
+
 void read_rules(FILE *file, Rule *rules_ds, int *count) {
+    // 1. tokenize the text
     Tokens tokens = {NULL, 0};
     tokenize_rules(file, &tokens);
+
+    // 2. close the file handle
+    // int error_code = fclose(file);
+    // if (error_code != 0) {
+    //     return FILE_NOT_CLOSED_ERROR;
+    // }
+    fclose(file);
+
+    // 3. extract the rules
+    extract_rules(rules_ds, count, &tokens);
 }
