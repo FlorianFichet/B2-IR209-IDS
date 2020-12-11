@@ -34,6 +34,7 @@ struct rule_ip {
 struct rule_port {
     bool negation;
     // 0 to -1 => any
+    // range: [start_port, end_port]
     int start_port;
     int end_port;
 } typedef RulePort;

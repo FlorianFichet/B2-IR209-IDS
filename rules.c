@@ -188,6 +188,11 @@ void get_rules_ip(RuleIp **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr) {
                                     &new_ip->netmask);
     }
 }
+void get_rules_port(RulePort **port_ptr, int *nb_ports) {
+    // 1. check '!'
+    // 2. check 'any'
+    // 3. check '['
+}
 
 int get_rule_action(Rule *rule, Tokens *tokens, int *i_ptr) {
     if (strcmp(tokens->tokens[*i_ptr], "alert") == 0) {
@@ -257,9 +262,11 @@ int get_rule_source_ip(Rule *rule, Tokens *tokens, int *i_ptr) {
     get_rules_ip(&rule->sources, &rule->nb_sources, tokens, i_ptr);
 }
 int get_rule_source_port(Rule *rule, Tokens *tokens, int *i_ptr) {
-    // 1. check '!'
-    // 2. check 'any'
-    // 3. check '['
+    // it needs to be initialized here because the next function calls itself
+    // recursively and therefore can't initialize these fields
+    rule->source_ports = NULL;
+    rule->nb_source_ports = 0;
+    get_rules_port(&rule->source_ports, &rule->nb_source_ports);
 }
 int get_rule_direction(Rule *rule, Tokens *tokens, int *i_ptr) {
     if (strcmp(tokens->tokens[*i_ptr], "->") == 0) {
@@ -281,7 +288,13 @@ int get_rule_destination_ip(Rule *rule, Tokens *tokens, int *i_ptr) {
     rule->nb_destinations = 0;
     get_rules_ip(&rule->destinations, &rule->nb_destinations, tokens, i_ptr);
 }
-int get_rule_destination_port(Rule *rule, Tokens *tokens, int *i_ptr) {}
+int get_rule_destination_port(Rule *rule, Tokens *tokens, int *i_ptr) {
+    // it needs to be initialized here because the next function calls itself
+    // recursively and therefore can't initialize these fields
+    rule->destination_ports = NULL;
+    rule->nb_destination_ports = 0;
+    get_rules_port(&rule->destination_ports, &rule->nb_destination_ports);
+}
 int get_rule_options(Rule *rule, Tokens *tokens, int *i_ptr) {}
 
 void extract_rules(Rule *rules, int *nb_rules, Tokens *tokens) {
