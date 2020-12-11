@@ -96,7 +96,7 @@ void increase_nb_ip(RuleIp **ip_ptr, int *nb_ip) {
     (*nb_ip)++;
     *(ip_ptr) = realloc((*ip_ptr), (*nb_ip) * sizeof(RuleIp));
 }
-void increase_nb_ports(port_ptr, nb_ports) {
+void increase_nb_ports(RulePort **port_ptr, int *nb_ports) {
     (*nb_ports)++;
     *(port_ptr) = realloc((*port_ptr), (*nb_ports) * sizeof(RulePort));
 }
@@ -153,12 +153,20 @@ int get_ip_and_netmask_from_str(char *ip_str, int *ip_int, char *netmask) {
 
     return 0;
 }
-int get_port_from_str(RulePort port, Tokens *tokens, int *i_ptr) {
+int get_port_from_str(RulePort *port, Tokens *tokens, int *i_ptr) {
     // 1. get start_port
+    port->start_port = atoi(tokens->tokens[*i_ptr]);
     // 2. check if the next token is ':'
-    // 3. if it is, get end_port
-    // 4. otherwise, end_port = start_port
-    // NOTE: this function is responsible for increasing *i_ptr
+    (*i_ptr)++;
+    if (strcmp(tokens->tokens[*i_ptr], ":") == 0) {
+        // 3. if it is, get end_port
+        (*i_ptr)++; // pass the token ':'
+        port->end_port = atoi(tokens->tokens[*i_ptr]);
+        (*i_ptr)++;
+    } else {
+        // 4. otherwise, end_port = start_port
+        port->end_port = port->start_port;
+    }
 }
 
 
@@ -230,9 +238,9 @@ void get_rules_port(RulePort **port_ptr, int *nb_ports, Tokens *tokens,
     } else {
         // // // // add the port (be careful of ranges !)
         // add a port to the list
-        increase_nb_port(port_ptr, nb_ports);
+        increase_nb_ports(port_ptr, nb_ports);
         // get the port
-        RuleIp *new_port = &(*port_ptr)[(*nb_ports) - 1];
+        RulePort *new_port = &(*port_ptr)[(*nb_ports) - 1];
         new_port->negation = false;
         get_port_from_str(new_port, tokens, i_ptr);
     }
