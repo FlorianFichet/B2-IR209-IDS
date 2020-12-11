@@ -33,7 +33,9 @@ struct rule_ip {
 } typedef RuleIp;
 struct rule_port {
     bool negation;
-    int port;  // -1 => any
+    // 0 to -1 => any
+    int start_port;
+    int end_port;
 } typedef RulePort;
 enum rule_direction {
     Forward,          // ->
