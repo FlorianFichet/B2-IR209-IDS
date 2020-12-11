@@ -36,7 +36,6 @@ void tokenize_rules(FILE *file, Tokens *tokens) {
     char c = ' ';
     char buffer[1000];
     int buffer_index = 0;
-    bool token_is_over = false;
 
     while (c != EOF) {
         c = fgetc(file);
@@ -64,7 +63,6 @@ void tokenize_rules(FILE *file, Tokens *tokens) {
             case ',':
             case ';':
             case ':':
-            case '"':
             case '[':
             case ']':
             case '!':
@@ -77,6 +75,34 @@ void tokenize_rules(FILE *file, Tokens *tokens) {
                     add_token(&c, 2, tokens);
                     buffer_index = 0;
                 }
+                break;
+
+            case '"':
+                // add the buffer (if not empty)
+                if (buffer_index > 0) {
+                    // the buffer contains the token
+                    // buffer_index needs to be incremented to account for
+                    // the '\0'
+                    add_token(buffer, buffer_index + 1, tokens);
+                }
+                // add the quote '"' to the buffer
+                buffer[0] = c;
+                buffer_index = 1;
+
+                // add every character to the buffer until there is a second
+                // quote
+                c = fgetc(file);
+                while (c != '"') {
+                    buffer[buffer_index] = c;
+                    buffer_index++;
+                    c = fgetc(file);
+                }
+                // add the second quote to the buffer
+                buffer[buffer_index] = c;
+                buffer_index++;
+                // finally add the buffer
+                add_token(buffer, buffer_index + 1, tokens);
+
                 break;
 
             default:
@@ -117,7 +143,7 @@ int get_ip_and_netmask_from_str(char *ip_str, int *ip_int, char *netmask) {
     int index_buffer = 0;
     int i = 0;
 
-    while (ip_str[i] != '/') {
+    while (ip_str[i] != '/' && ip_str[i] != '\0') {
         if (ip_str[i] == '.') {
             // get the number from the buffer
             int byte = atoi(buffer);
@@ -146,10 +172,17 @@ int get_ip_and_netmask_from_str(char *ip_str, int *ip_int, char *netmask) {
     // add it to ip_int
     (*ip_int) += byte;
 
-    // get the netmask (the netmask is the rest of *ip_str, after the '/')
-    // ip_str + i     => '/<netmask>'
-    // ip_str + i + 1 => '<netmask>'
-    (*netmask) = atoi(ip_str + i + 1);
+    if (ip_str[i] == '/') {
+        // get the netmask (the netmask is the rest of *ip_str, after the '/')
+        // ip_str + i     => '/<netmask>'
+        // ip_str + i + 1 => '<netmask>'
+        (*netmask) = atoi(ip_str + i + 1);
+    } else {
+        // if there's only an ip (a host, not a network), it's as if the netmask
+        // had a value of 32 (CIDR notation)
+        (*netmask) = 32;
+    }
+
 
     return 0;
 }
@@ -158,9 +191,10 @@ int get_port_from_str(RulePort *port, Tokens *tokens, int *i_ptr) {
     port->start_port = atoi(tokens->tokens[*i_ptr]);
     // 2. check if the next token is ':'
     (*i_ptr)++;
-    if (strcmp(tokens->tokens[*i_ptr], ":") == 0) {
+    char *token = tokens->tokens[*i_ptr];
+    if (strcmp(token, ":") == 0) {
         // 3. if it is, get end_port
-        (*i_ptr)++; // pass the token ':'
+        (*i_ptr)++;  // pass the token ':'
         port->end_port = atoi(tokens->tokens[*i_ptr]);
         (*i_ptr)++;
     } else {
@@ -236,7 +270,6 @@ void get_rules_port(RulePort **port_ptr, int *nb_ports, Tokens *tokens,
             get_rules_port(port_ptr, nb_ports, tokens, i_ptr);
         }
     } else {
-        // // // // add the port (be careful of ranges !)
         // add a port to the list
         increase_nb_ports(port_ptr, nb_ports);
         // get the port
