@@ -88,32 +88,34 @@ void tokenize_rules(FILE *file, Tokens *tokens) {
 }
 
 
-void increase_size_rules(Rule **rules, int *nb_rules) {
+void increase_nb_rules(Rule **rules_ptr, int *nb_rules) {
     (*nb_rules)++;
-    int size_of_rule = sizeof(Rule);
-    (*rules) = realloc((*rules), (*nb_rules) * size_of_rule);
+    (*rules_ptr) = realloc((*rules_ptr), (*nb_rules) * sizeof(Rule));
+}
+void increase_nb_ip(RuleIp **ip_ptr, int *nb_ip) {
+    (*nb_ip)++;
+    *(ip_ptr) = realloc((*ip_ptr), (*nb_ip) * sizeof(RuleIp));
 }
 void fill_in_char_buffer(char *buffer, int length_buffer, char c) {
     for (int i = 0; i < length_buffer; i++) {
         buffer[i] = c;
     }
 }
-// get an ip int from a string representation, e.g. "255.255.255.255"
-// => 4294967295
-int get_int_ip_from_str(char *ip_str, int *ip_int) {
+// get an ip int from a string representation, e.g. "255.255.255.255/24"
+// => *ip_int = 4294967295, *netmask = 24
+int get_ip_and_netmask_from_str(char *ip_str, int *ip_int, char *netmask) {
     char buffer[4] = "";
     fill_in_char_buffer(buffer, 4, '\0');
     int ip_byte = 3;  // 3-0
 
     int index_buffer = 0;
-
     int i = 0;
 
-    while (ip_str[i] != '\0') {
+    while (ip_str[i] != '/') {
         if (ip_str[i] == '.') {
-            // 1. get the number from the buffer
+            // get the number from the buffer
             int byte = atoi(buffer);
-            // 2. add it to ip_int
+            // add it to ip_int
             if (ip_byte == 3) {
                 (*ip_int) += byte * 256 * 256 * 256;
             }
@@ -123,7 +125,7 @@ int get_int_ip_from_str(char *ip_str, int *ip_int) {
             if (ip_byte == 1) {
                 (*ip_int) += byte * 256;
             }
-            // 3. decrement ip_byte, reinitialize the buffer/index_buffer
+            // decrement ip_byte, reinitialize the buffer/index_buffer
             ip_byte--;
             index_buffer = 0;
             fill_in_char_buffer(buffer, 4, '\0');
@@ -133,13 +135,60 @@ int get_int_ip_from_str(char *ip_str, int *ip_int) {
             index_buffer++;
         }
     }
-    // 1. get the number from the buffer
+    // get the number from the buffer
     int byte = atoi(buffer);
-    // 2. add it to ip_int
+    // add it to ip_int
     (*ip_int) += byte;
+
+    // get the netmask (the netmask is the rest of *ip_str, after the '/')
+    // ip_str + i     => '/<netmask>'
+    // ip_str + i + 1 => '<netmask>'
+    (*netmask) = atoi(ip_str + i + 1);
 
     return 0;
 }
+void get_rules_ip(RuleIp **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr) {
+    if (strcmp(tokens->tokens[*i_ptr], "!") == 0) {
+        // 1. increment *i_ptr, make a copy of *nb_ip (=> start_ip)
+        (*i_ptr)++;
+        int start_ip = *nb_ip;
+        // 2. call the function recursively
+        get_rules_ip(ip_ptr, nb_ip, tokens, i_ptr);
+        // 3. loop though the ip (start_ip -> *nb_ip) and inverse their negation
+        for (int j = start_ip; j < *nb_ip; j++) {
+            // inverse the ip's negation
+            (*ip_ptr)[j].negation != (*ip_ptr)[j].negation;
+        }
+    } else if (strcmp(tokens->tokens[*i_ptr], "any") == 0) {
+        // 1. increase *i_ptr
+        (*i_ptr)++;
+        // 3. add an ip to the list
+        increase_nb_ip(ip_ptr, nb_ip);
+        // 4. set the ip's fields
+        // NOTE: we don't need to set a netmask because it's any ip
+        (*ip_ptr)[(*nb_ip) - 1].negation = false;
+        (*ip_ptr)[(*nb_ip) - 1].ip = -1;  // -1 => any
+    } else if (strcmp(tokens->tokens[*i_ptr], "[") == 0) {
+        // 2. loop until we get the closing ']'
+        while (strcmp(tokens->tokens[*i_ptr], "]") != 0) {
+            // 1. increase *i_ptr, to pass the '[' or the ','
+            (*i_ptr)++;
+            // 2. call the function recursively to get the ip
+            get_rules_ip(ip_ptr, nb_ip, tokens, i_ptr);
+        }
+    } else {
+        // 1. increment *i_ptr
+        (*i_ptr)++;
+        // 2. add an ip to the list
+        increase_nb_ip(ip_ptr, nb_ip);
+        // 3. get the ip and the netmask
+        RuleIp *new_ip = &(*ip_ptr)[(*nb_ip) - 1];
+        new_ip->negation = false;
+        get_ip_and_netmask_from_str(tokens->tokens[*i_ptr], &new_ip->ip,
+                                    &new_ip->netmask);
+    }
+}
+
 int get_rule_action(Rule *rule, Tokens *tokens, int *i_ptr) {
     if (strcmp(tokens->tokens[*i_ptr], "alert") == 0) {
         rule->action = Alert;
@@ -201,14 +250,16 @@ int get_rule_protocol(Rule *rule, Tokens *tokens, int *i_ptr) {
     return 0;
 }
 int get_rule_source_ip(Rule *rule, Tokens *tokens, int *i_ptr) {
-    // check 'any'
-    // check '!'
-    // check '['
+    // it needs to be initialized here because the next function calls itself
+    // recursively and therefore can't initialize these fields
+    rule->sources = NULL;
+    rule->nb_sources = 0;
+    get_rules_ip(&rule->sources, &rule->nb_sources, tokens, i_ptr);
 }
 int get_rule_source_port(Rule *rule, Tokens *tokens, int *i_ptr) {
-    // check 'any'
-    // check '!'
-    // check '['
+    // 1. check '!'
+    // 2. check 'any'
+    // 3. check '['
 }
 int get_rule_direction(Rule *rule, Tokens *tokens, int *i_ptr) {}
 int get_rule_destination_ip(Rule *rule, Tokens *tokens, int *i_ptr) {}
@@ -219,7 +270,7 @@ void extract_rules(Rule *rules, int *nb_rules, Tokens *tokens) {
     int i = 0;
     while (i < tokens->nb_tokens) {
         // add an empty rule to the list
-        increase_size_rules(&rules, nb_rules);
+        increase_nb_rules(&rules, nb_rules);
         Rule *rule = &rules[(*nb_rules) - 1];
 
         get_rule_action(rule, tokens, &i);
