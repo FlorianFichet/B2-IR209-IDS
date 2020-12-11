@@ -71,10 +71,10 @@ void tokenize_rules(FILE *file, Tokens *tokens) {
                     // buffer_index needs to be incremented to account for the
                     // '\0'
                     add_token(buffer, buffer_index + 1, tokens);
-                    // add the character 'c', 2 => accounts for the '\0'
-                    add_token(&c, 2, tokens);
-                    buffer_index = 0;
                 }
+                // add the character 'c', 2 => accounts for the '\0'
+                add_token(&c, 2, tokens);
+                buffer_index = 0;
                 break;
 
             case '"':
@@ -102,6 +102,7 @@ void tokenize_rules(FILE *file, Tokens *tokens) {
                 buffer_index++;
                 // finally add the buffer
                 add_token(buffer, buffer_index + 1, tokens);
+                buffer_index = 0;
 
                 break;
 
@@ -120,17 +121,30 @@ void increase_nb_rules(Rule **rules_ptr, int *nb_rules) {
 }
 void increase_nb_ip(RuleIp **ip_ptr, int *nb_ip) {
     (*nb_ip)++;
-    *(ip_ptr) = realloc((*ip_ptr), (*nb_ip) * sizeof(RuleIp));
+    (*ip_ptr) = realloc((*ip_ptr), (*nb_ip) * sizeof(RuleIp));
 }
 void increase_nb_ports(RulePort **port_ptr, int *nb_ports) {
     (*nb_ports)++;
-    *(port_ptr) = realloc((*port_ptr), (*nb_ports) * sizeof(RulePort));
+    (*port_ptr) = realloc((*port_ptr), (*nb_ports) * sizeof(RulePort));
+}
+void increase_nb_options(RuleOption **option, int *nb_options) {
+    (*nb_options)++;
+    (*option) = realloc((*option), (*nb_options) * sizeof(RuleOption *));
+}
+void increase_nb_option_settings(char ***settings, int *nb_settings) {
+    (*nb_settings)++;
+    (*settings) = realloc((*settings), (*nb_settings) * sizeof(char **));
 }
 
 void fill_in_char_buffer(char *buffer, int length_buffer, char c) {
     for (int i = 0; i < length_buffer; i++) {
         buffer[i] = c;
     }
+}
+void copy_string_in_heap(char *string, char **copy) {
+    int length = strlen(string);
+    (*copy) = malloc(length * sizeof(char));
+    strcpy((*copy), string);
 }
 
 // get an ip int from a string representation, e.g. "255.255.255.255/24"
@@ -381,7 +395,54 @@ int get_rule_destination_port(Rule *rule, Tokens *tokens, int *i_ptr) {
     get_rules_port(&rule->destination_ports, &rule->nb_destination_ports,
                    tokens, i_ptr);
 }
-int get_rule_options(Rule *rule, Tokens *tokens, int *i_ptr) {}
+int get_rule_options(Rule *rule, Tokens *tokens, int *i_ptr) {
+    // initialize nb_options and options
+    rule->options = NULL;
+    rule->nb_options = 0;
+
+    // increment because of the '('
+    (*i_ptr)++;
+    char *token = tokens->tokens[*i_ptr];
+
+    // get all options
+    while (strcmp(token, ")") != 0) {
+        // add new option & initialize it
+        increase_nb_options(&rule->options, &rule->nb_options);
+        RuleOption *option = &rule->options[rule->nb_options - 1];
+        option->settings = NULL;
+        option->nb_settings = 0;
+
+        // get option keyword
+        copy_string_in_heap(token, &option->keyword);
+        (*i_ptr)++;
+        token = tokens->tokens[*i_ptr];
+
+        // get option settings
+        while (strcmp(token, ";") != 0) {
+            // increase *i_ptr to account for the ':' or the ','
+            if (strcmp(token, ":") == 0 || strcmp(token, ",") == 0) {
+                (*i_ptr)++;
+                token = tokens->tokens[*i_ptr];
+            }
+
+            // add new setting & copy it
+            increase_nb_option_settings(&option->settings,
+                                        &option->nb_settings);
+            copy_string_in_heap(token,
+                                &option->settings[option->nb_settings - 1]);
+
+            (*i_ptr)++;
+            token = tokens->tokens[*i_ptr];
+        }
+
+        // increase *i_ptr to account for the ';'
+        (*i_ptr)++;
+        token = tokens->tokens[*i_ptr];
+    }
+
+    // increment because of the ')'
+    (*i_ptr)++;
+}
 
 void extract_rules(Rule *rules, int *nb_rules, Tokens *tokens) {
     int i = 0;
@@ -419,4 +480,12 @@ void read_rules(FILE *file, Rule *rules_ds, int *count) {
 
     // 3. extract the rules
     extract_rules(rules_ds, count, &tokens);
+
+    // 4. free tokens
+    //  4.1. free every token
+    for (size_t i = 0; i < tokens.nb_tokens; i++) {
+        free(tokens.tokens[i]);
+    }
+    //  4.2. free the tokens list
+    free(tokens.tokens);
 }
