@@ -261,8 +261,26 @@ int get_rule_source_port(Rule *rule, Tokens *tokens, int *i_ptr) {
     // 2. check 'any'
     // 3. check '['
 }
-int get_rule_direction(Rule *rule, Tokens *tokens, int *i_ptr) {}
-int get_rule_destination_ip(Rule *rule, Tokens *tokens, int *i_ptr) {}
+int get_rule_direction(Rule *rule, Tokens *tokens, int *i_ptr) {
+    if (strcmp(tokens->tokens[*i_ptr], "->") == 0) {
+        rule->direction = Forward;
+    } else if (strcmp(tokens->tokens[*i_ptr], "<>") == 0) {
+        rule->direction = Both_directions;
+    }
+    // else {
+    //     return ERROR_DIRECTION_EXPECTED;
+    // }
+
+    (*i_ptr)++;
+    return 0;
+}
+int get_rule_destination_ip(Rule *rule, Tokens *tokens, int *i_ptr) {
+    // it needs to be initialized here because the next function calls itself
+    // recursively and therefore can't initialize these fields
+    rule->destinations = NULL;
+    rule->nb_destinations = 0;
+    get_rules_ip(&rule->destinations, &rule->nb_destinations, tokens, i_ptr);
+}
 int get_rule_destination_port(Rule *rule, Tokens *tokens, int *i_ptr) {}
 int get_rule_options(Rule *rule, Tokens *tokens, int *i_ptr) {}
 
