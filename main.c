@@ -1,7 +1,7 @@
+#include <stdlib.h>
+
 #include "populate.h"
 #include "rules.h"
-
-#include <stdlib.h>
 
 
 #define SNIFFER_ERROR_HANDLE_NOT_CREATED 1
@@ -9,11 +9,29 @@
 #define FILE_NOT_OPENED_ERROR 3
 
 
+// get the activated handle into 'handle', it is opened on 'device',
+// returns 0 on success
+int get_activated_handle(pcap_t **handle_ptr, char device[],
+                         char error_buffer[]) {
+    // 1. create the handle
+    (*handle_ptr) = pcap_create(device, error_buffer);
+    if ((*handle_ptr) == NULL) {
+        pcap_close(*handle_ptr);
+        return SNIFFER_ERROR_HANDLE_NOT_CREATED;
+    }
+
+    // 2. activate the handle
+    if (pcap_activate(*handle_ptr) != 0) {
+        return SNIFFER_ERROR_HANDLE_NOT_ACTIVATED;
+    }
+
+    return 0;
+}
+
+
 void rule_matcher(Rule *rules_ds, ETHER_Frame *frame) {}
 void my_packet_handler(u_char *args, const struct pcap_pkthdr *header,
                        const u_char *packet) {}
-int get_activated_handle(pcap_t **handle_ptr, char device[],
-                         char error_buffer[]);
 
 
 int main(int argc, char *argv[]) {
@@ -65,21 +83,5 @@ int main(int argc, char *argv[]) {
         free(rule);
     }
 
-    return 0;
-}
-
-
-// get the activated handle into 'handle', it is opened on 'device',
-// returns 0 on success
-int get_activated_handle(pcap_t **handle_ptr, char device[],
-                         char error_buffer[]) {
-    (*handle_ptr) = pcap_create(device, error_buffer);
-    if ((*handle_ptr) == NULL) {
-        pcap_close(*handle_ptr);
-        return SNIFFER_ERROR_HANDLE_NOT_CREATED;
-    }
-    if (pcap_activate(*handle_ptr) != 0) {
-        return SNIFFER_ERROR_HANDLE_NOT_ACTIVATED;
-    }
     return 0;
 }
