@@ -354,17 +354,9 @@ int get_rule_protocol(Rule *rule, Tokens *tokens, int *i_ptr) {
     return 0;
 }
 void get_rule_source_ip(Rule *rule, Tokens *tokens, int *i_ptr) {
-    // it needs to be initialized here because the next function calls itself
-    // recursively and therefore can't initialize these fields
-    rule->sources = NULL;
-    rule->nb_sources = 0;
     get_rules_ip(&rule->sources, &rule->nb_sources, tokens, i_ptr);
 }
 void get_rule_source_port(Rule *rule, Tokens *tokens, int *i_ptr) {
-    // it needs to be initialized here because the next function calls itself
-    // recursively and therefore can't initialize these fields
-    rule->source_ports = NULL;
-    rule->nb_source_ports = 0;
     get_rules_port(&rule->source_ports, &rule->nb_source_ports, tokens, i_ptr);
 }
 void get_rule_direction(Rule *rule, Tokens *tokens, int *i_ptr) {
@@ -380,25 +372,13 @@ void get_rule_direction(Rule *rule, Tokens *tokens, int *i_ptr) {
     (*i_ptr)++;
 }
 void get_rule_destination_ip(Rule *rule, Tokens *tokens, int *i_ptr) {
-    // it needs to be initialized here because the next function calls itself
-    // recursively and therefore can't initialize these fields
-    rule->destinations = NULL;
-    rule->nb_destinations = 0;
     get_rules_ip(&rule->destinations, &rule->nb_destinations, tokens, i_ptr);
 }
 void get_rule_destination_port(Rule *rule, Tokens *tokens, int *i_ptr) {
-    // it needs to be initialized here because the next function calls itself
-    // recursively and therefore can't initialize these fields
-    rule->destination_ports = NULL;
-    rule->nb_destination_ports = 0;
     get_rules_port(&rule->destination_ports, &rule->nb_destination_ports,
                    tokens, i_ptr);
 }
 void get_rule_options(Rule *rule, Tokens *tokens, int *i_ptr) {
-    // initialize nb_options and options
-    rule->options = NULL;
-    rule->nb_options = 0;
-
     // increment because of the '('
     (*i_ptr)++;
     char *token = tokens->tokens[*i_ptr];
@@ -450,6 +430,19 @@ void extract_rules(Rule *rules, int *nb_rules, Tokens *tokens) {
         increase_nb_rules(&rules, nb_rules);
         Rule *rule = &rules[(*nb_rules) - 1];
 
+        // initialize the rule
+        rule->nb_sources = 0;
+        rule->nb_source_ports = 0;
+        rule->nb_destinations = 0;
+        rule->nb_destination_ports = 0;
+        rule->nb_options = 0;
+        rule->sources = NULL;
+        rule->source_ports = NULL;
+        rule->destinations = NULL;
+        rule->destination_ports = NULL;
+        rule->options = NULL;
+
+        // get the rule
         get_rule_action(rule, tokens, &i);
         get_rule_protocol(rule, tokens, &i);
         get_rule_source_ip(rule, tokens, &i);
