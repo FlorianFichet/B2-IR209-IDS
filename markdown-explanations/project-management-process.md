@@ -26,6 +26,10 @@ The project is divided in four parts:
 
 ![picture of the project's organisation](./images/project-1.PNG)
 
+On the *network graph* below, you can see that every branch opened to solve an issue ultimately comes back to the main branch in order to improve it.
+
+![picture of the project's network graph](./images/project-2.PNG)
+
 ## 2. How to contribute to the project
 
 ### Prepare your computer coding setup
@@ -34,6 +38,8 @@ The project is divided in four parts:
 2. **Initialize**: clone the project locally :
     - `mkdir project`
     - `git clone https://github.com/groumache/B2-IR209-IDS.git project`
+    - `git config --global user.name "<first_name> <last_name>"`
+    - `git config --global user.email "<email>"`
 
 ### Write code to solve the issue
 
