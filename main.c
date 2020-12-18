@@ -31,14 +31,17 @@ int get_activated_handle(pcap_t **handle_ptr, char device[],
 
 void rule_matcher(Rule *rules_ds, ETHER_Frame *frame) {}
 void my_packet_handler(u_char *args, const struct pcap_pkthdr *header,
-                       const u_char *packet) {}
+                       const u_char *packet) {
+    ETHER_Frame custom_frame;
+    populate_packet_ds(header, packet, &custom_frame);
+}
 
 
 int main(int argc, char *argv[]) {
     int error_code = 0;
-    int total_packet_count = 0;
+    int total_packet_count = 1;
     char *device = "eth0";
-    char *rules_file_name = "/home/user/Downloads/projet/ids.rules";
+    char *rules_file_name = "/home/user/Downloads/project/ids.rules";
     char error_buffer[PCAP_ERRBUF_SIZE];
     pcap_t *handle;
 
@@ -46,16 +49,20 @@ int main(int argc, char *argv[]) {
 
     // 2. initialize pcap (the handle is used to identify the session)
     error_code = get_activated_handle(&handle, device, error_buffer);
-    if (error_code != 0) { return error_code; }
+    if (error_code != 0) {
+        return error_code;
+    }
 
     // 3. open the rules' file
     FILE *file = fopen(rules_file_name, "r");
-    if (file == NULL) { return FILE_NOT_OPENED_ERROR; }
+    if (file == NULL) {
+        return FILE_NOT_OPENED_ERROR;
+    }
 
     // 4. read the rules' file
     Rule *rules = NULL;
     int nb_rules = 0;
-    read_rules(file, rules, &nb_rules);
+    read_rules(file, &rules, &nb_rules);
 
     // 5. handle the packets
     pcap_loop(handle, total_packet_count, my_packet_handler, NULL);
@@ -67,20 +74,39 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < nb_rules; i++) {
         Rule *rule = &rules[i];
 
-        // 6.1. free ip/ports sources/destinations
-        free(rule->sources);
-        free(rule->destinations);
-        free(rule->source_ports);
-        free(rule->destination_ports);
-
-        // 6.2. free options
-        free(rule->options->keyword);
-        for (int j = 0; j < rule->options->nb_settings; j++) {
-            free(rule->options->settings[j]);
+        // free ip/ports sources/destinations
+        if (rule->sources != NULL) {
+            free(rule->sources);
+        }
+        if (rule->destinations != NULL) {
+            free(rule->destinations);
+        }
+        if (rule->source_ports != NULL) {
+            free(rule->source_ports);
+        }
+        if (rule->destination_ports != NULL) {
+            free(rule->destination_ports);
         }
 
-        // 6.3. free the rule
-        free(rule);
+        // free options
+        for (int j = 0; j < rule->nb_options; j++) {
+            // free the option's settings
+            for (int k = 0; k < rule->options[j].nb_settings; k++) {
+                if (rule->options[j].settings[k] != NULL) {
+                    free(rule->options[j].settings[k]);
+                }
+            }
+            if (rule->options[j].keyword != NULL) {
+                free(rule->options[j].keyword);
+            }
+        }
+        if (rule->options != NULL) {
+            free(rule->options);
+        }
+    }
+    // free the rules
+    if (rules != NULL) {
+        free(rules);
     }
 
     return 0;
