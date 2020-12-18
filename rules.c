@@ -127,9 +127,10 @@ void increase_nb_ports(RulePort **port_ptr, int *nb_ports) {
     (*nb_ports)++;
     (*port_ptr) = realloc((*port_ptr), (*nb_ports) * sizeof(RulePort));
 }
-void increase_nb_options(RuleOption **option, int *nb_options) {
+void increase_nb_options(RuleOption **options_ptr, int *nb_options) {
     (*nb_options)++;
-    (*option) = realloc((*option), (*nb_options) * sizeof(RuleOption *));
+    (*options_ptr) =
+        realloc((*options_ptr), (*nb_options) * sizeof(RuleOption));
 }
 void increase_nb_option_settings(char ***settings, int *nb_settings) {
     (*nb_settings)++;
@@ -142,7 +143,8 @@ void fill_in_char_buffer(char *buffer, int length_buffer, char c) {
     }
 }
 void copy_string_in_heap(char *string, char **copy) {
-    int length = strlen(string);
+    // +1 for the '\0'
+    int length = strlen(string) + 1;
     (*copy) = malloc(length * sizeof(char));
     strcpy((*copy), string);
 }
@@ -218,6 +220,29 @@ void get_port_from_str(RulePort *port, Tokens *tokens, int *i_ptr) {
 }
 
 
+void get_option_settings(RuleOption *option, Tokens *tokens, int *i_ptr) {
+    char *token = tokens->tokens[*i_ptr];
+
+    // get option settings
+    while (strcmp(token, ";") != 0) {
+        // increase *i_ptr to account for the ':' or the ','
+        if (strcmp(token, ":") == 0 || strcmp(token, ",") == 0) {
+            (*i_ptr)++;
+            token = tokens->tokens[*i_ptr];
+        }
+
+        // add new setting & copy it
+        increase_nb_option_settings(&option->settings, &option->nb_settings);
+        copy_string_in_heap(token, &option->settings[option->nb_settings - 1]);
+
+        (*i_ptr)++;
+        token = tokens->tokens[*i_ptr];
+    }
+
+    // increase *i_ptr to account for the ';'
+    (*i_ptr)++;
+}
+
 void get_rules_ip(RuleIp **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr) {
     if (strcmp(tokens->tokens[*i_ptr], "!") == 0) {
         // 1. increment *i_ptr, make a copy of *nb_ip (=> start_ip)
@@ -228,15 +253,17 @@ void get_rules_ip(RuleIp **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr) {
         // 3. loop though the ip (start_ip -> *nb_ip) and inverse their negation
         for (int j = start_ip; j < *nb_ip; j++) {
             // inverse the ip's negation
-            (*ip_ptr)[j].negation = !(*ip_ptr)[j].negation;
+            RuleIp *ip = (*ip_ptr) + j * sizeof(RuleIp);
+            ip->negation = !ip->negation;
         }
     } else if (strcmp(tokens->tokens[*i_ptr], "any") == 0) {
         (*i_ptr)++;
         increase_nb_ip(ip_ptr, nb_ip);
         // set the ip's fields
         // NOTE: we don't need to set a netmask because it's any ip
-        (*ip_ptr)[(*nb_ip) - 1].negation = false;
-        (*ip_ptr)[(*nb_ip) - 1].ip = -1;  // -1 => any
+        RuleIp *ip = (*ip_ptr) + ((*nb_ip) - 1) * sizeof(RuleIp);
+        ip->negation = false;
+        ip->ip = -1;  // -1 => any
     } else if (strcmp(tokens->tokens[*i_ptr], "[") == 0) {
         // loop until we get the closing ']'
         while (strcmp(tokens->tokens[*i_ptr], "]") != 0) {
@@ -260,21 +287,25 @@ void get_rules_ip(RuleIp **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr) {
 void get_rules_port(RulePort **port_ptr, int *nb_ports, Tokens *tokens,
                     int *i_ptr) {
     if (strcmp(tokens->tokens[*i_ptr], "!") == 0) {
+        // get all the ports affected by the '!', then inverse them
         (*i_ptr)++;
         int start_port = *nb_ports;
         get_rules_port(port_ptr, nb_ports, tokens, i_ptr);
+
         for (int j = start_port; j < *nb_ports; j++) {
             // inverse the port's negation
-            (*port_ptr)[j].negation = !(*port_ptr)[j].negation;
+            RulePort *port = (*port_ptr) + j * sizeof(RulePort);
+            port->negation = !port->negation;
         }
     } else if (strcmp(tokens->tokens[*i_ptr], "any") == 0) {
         (*i_ptr)++;
         increase_nb_ports(port_ptr, nb_ports);
+        RulePort *port = (*port_ptr) + ((*nb_ports) - 1) * sizeof(RulePort);
         // set the port's fields
-        (*port_ptr)[(*nb_ports) - 1].negation = false;
+        port->negation = false;
         // 0 to -1 => any
-        (*port_ptr)[(*nb_ports) - 1].start_port = 0;
-        (*port_ptr)[(*nb_ports) - 1].end_port = -1;
+        port->start_port = 0;
+        port->end_port = -1;
     } else if (strcmp(tokens->tokens[*i_ptr], "[") == 0) {
         // loop until we get the closing ']'
         while (strcmp(tokens->tokens[*i_ptr], "]") != 0) {
@@ -287,9 +318,9 @@ void get_rules_port(RulePort **port_ptr, int *nb_ports, Tokens *tokens,
         // add a port to the list
         increase_nb_ports(port_ptr, nb_ports);
         // get the port
-        RulePort *new_port = &(*port_ptr)[(*nb_ports) - 1];
-        new_port->negation = false;
-        get_port_from_str(new_port, tokens, i_ptr);
+        RulePort *port = (*port_ptr) + ((*nb_ports) - 1) * sizeof(RulePort);
+        port->negation = false;
+        get_port_from_str(port, tokens, i_ptr);
     }
 }
 
@@ -379,6 +410,8 @@ void get_rule_destination_port(Rule *rule, Tokens *tokens, int *i_ptr) {
                    tokens, i_ptr);
 }
 void get_rule_options(Rule *rule, Tokens *tokens, int *i_ptr) {
+    // example of syntax: rule = ... (option:setting,setting;option:setting;)
+
     // increment because of the '('
     (*i_ptr)++;
     char *token = tokens->tokens[*i_ptr];
@@ -388,34 +421,16 @@ void get_rule_options(Rule *rule, Tokens *tokens, int *i_ptr) {
         // add new option & initialize it
         increase_nb_options(&rule->options, &rule->nb_options);
         RuleOption *option = &rule->options[rule->nb_options - 1];
+        option->keyword = NULL;
         option->settings = NULL;
         option->nb_settings = 0;
 
         // get option keyword
         copy_string_in_heap(token, &option->keyword);
         (*i_ptr)++;
-        token = tokens->tokens[*i_ptr];
 
-        // get option settings
-        while (strcmp(token, ";") != 0) {
-            // increase *i_ptr to account for the ':' or the ','
-            if (strcmp(token, ":") == 0 || strcmp(token, ",") == 0) {
-                (*i_ptr)++;
-                token = tokens->tokens[*i_ptr];
-            }
+        get_option_settings(option, tokens, i_ptr);
 
-            // add new setting & copy it
-            increase_nb_option_settings(&option->settings,
-                                        &option->nb_settings);
-            copy_string_in_heap(token,
-                                &option->settings[option->nb_settings - 1]);
-
-            (*i_ptr)++;
-            token = tokens->tokens[*i_ptr];
-        }
-
-        // increase *i_ptr to account for the ';'
-        (*i_ptr)++;
         token = tokens->tokens[*i_ptr];
     }
 
@@ -423,12 +438,12 @@ void get_rule_options(Rule *rule, Tokens *tokens, int *i_ptr) {
     (*i_ptr)++;
 }
 
-void extract_rules(Rule *rules, int *nb_rules, Tokens *tokens) {
+void extract_rules(Rule **rules_ptr, int *nb_rules, Tokens *tokens) {
     int i = 0;
     while (i < tokens->nb_tokens) {
         // add an empty rule to the list
-        increase_nb_rules(&rules, nb_rules);
-        Rule *rule = &rules[(*nb_rules) - 1];
+        increase_nb_rules(rules_ptr, nb_rules);
+        Rule *rule = (*rules_ptr) + ((*nb_rules) - 1) * sizeof(Rule);
 
         // initialize the rule
         rule->nb_sources = 0;
@@ -458,7 +473,7 @@ void extract_rules(Rule *rules, int *nb_rules, Tokens *tokens) {
 }
 
 
-void read_rules(FILE *file, Rule *rules_ds, int *count) {
+void read_rules(FILE *file, Rule **rules_ptr, int *count) {
     // 1. tokenize the text
     Tokens tokens = {NULL, 0};
     tokenize_rules(file, &tokens);
@@ -471,13 +486,13 @@ void read_rules(FILE *file, Rule *rules_ds, int *count) {
     fclose(file);
 
     // 3. extract the rules
-    extract_rules(rules_ds, count, &tokens);
+    extract_rules(rules_ptr, count, &tokens);
 
     // 4. free tokens
-    //  4.1. free every token
+    // 4.1. free every token
     for (size_t i = 0; i < tokens.nb_tokens; i++) {
         free(tokens.tokens[i]);
     }
-    //  4.2. free the tokens list
+    // 4.2. free the tokens list
     free(tokens.tokens);
 }
