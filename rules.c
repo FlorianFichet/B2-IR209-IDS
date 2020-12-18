@@ -10,16 +10,37 @@ struct rules_tokens {
     int nb_tokens;
 } typedef Tokens;
 
-// function that adds a token to the 'Tokens' struct
-void add_token(char *token, int token_size, Tokens *tokens) {
+
+void increase_nb_tokens(Tokens *tokens) {
     // resize : (char**) tokens->tokens
     tokens->nb_tokens++;
-    tokens->tokens =
-        realloc(tokens->tokens, tokens->nb_tokens * sizeof(char *));
+    tokens->tokens = realloc(tokens->tokens, tokens->nb_tokens * sizeof(char *));
+}
+void increase_nb_rules(Rule **rules_ptr, int *nb_rules) {
+    (*nb_rules)++;
+    (*rules_ptr) = realloc((*rules_ptr), (*nb_rules) * sizeof(Rule));
+}
+void increase_nb_ip(RuleIp **ip_ptr, int *nb_ip) {
+    (*nb_ip)++;
+    (*ip_ptr) = realloc((*ip_ptr), (*nb_ip) * sizeof(RuleIp));
+}
+void increase_nb_ports(RulePort **port_ptr, int *nb_ports) {
+    (*nb_ports)++;
+    (*port_ptr) = realloc((*port_ptr), (*nb_ports) * sizeof(RulePort));
+}
+void increase_nb_options(RuleOption **options_ptr, int *nb_options) {
+    (*nb_options)++;
+    (*options_ptr) =
+        realloc((*options_ptr), (*nb_options) * sizeof(RuleOption));
+}
+void increase_nb_option_settings(char ***settings, int *nb_settings) {
+    (*nb_settings)++;
+    (*settings) = realloc((*settings), (*nb_settings) * sizeof(char **));
+}
 
-    // allocate enough memory to store the token
-    tokens->tokens[tokens->nb_tokens - 1] = malloc(token_size * sizeof(char));
 
+// we need a custom made function because the token we want copy doesn't end with '\0'
+void copy_token(char *token, int token_size, Tokens *tokens) {
     // copy the token into the allocated space
     char *s = tokens->tokens[tokens->nb_tokens - 1];
     s[--token_size] = '\0';  // --token_size => because we start counting at 0
@@ -28,6 +49,17 @@ void add_token(char *token, int token_size, Tokens *tokens) {
         s[token_size] = token[token_size];
         --token_size;
     }
+}
+
+
+// function that adds a token to the 'Tokens' struct
+void add_token(char *token, int token_size, Tokens *tokens) {
+    increase_nb_tokens(tokens);
+
+    // allocate enough memory to store the token
+    tokens->tokens[tokens->nb_tokens - 1] = malloc(token_size * sizeof(char));
+
+    copy_token(token, token_size, tokens);
 }
 
 // this function tokenizes the file that contains the rules, i.e. it separates
@@ -115,28 +147,6 @@ void tokenize_rules(FILE *file, Tokens *tokens) {
 }
 
 
-void increase_nb_rules(Rule **rules_ptr, int *nb_rules) {
-    (*nb_rules)++;
-    (*rules_ptr) = realloc((*rules_ptr), (*nb_rules) * sizeof(Rule));
-}
-void increase_nb_ip(RuleIp **ip_ptr, int *nb_ip) {
-    (*nb_ip)++;
-    (*ip_ptr) = realloc((*ip_ptr), (*nb_ip) * sizeof(RuleIp));
-}
-void increase_nb_ports(RulePort **port_ptr, int *nb_ports) {
-    (*nb_ports)++;
-    (*port_ptr) = realloc((*port_ptr), (*nb_ports) * sizeof(RulePort));
-}
-void increase_nb_options(RuleOption **options_ptr, int *nb_options) {
-    (*nb_options)++;
-    (*options_ptr) =
-        realloc((*options_ptr), (*nb_options) * sizeof(RuleOption));
-}
-void increase_nb_option_settings(char ***settings, int *nb_settings) {
-    (*nb_settings)++;
-    (*settings) = realloc((*settings), (*nb_settings) * sizeof(char **));
-}
-
 void fill_in_char_buffer(char *buffer, int length_buffer, char c) {
     for (int i = 0; i < length_buffer; i++) {
         buffer[i] = c;
@@ -221,6 +231,8 @@ void get_port_from_str(RulePort *port, Tokens *tokens, int *i_ptr) {
 
 
 void get_option_settings(RuleOption *option, Tokens *tokens, int *i_ptr) {
+    // example of syntax: option = ... :setting,setting;
+
     char *token = tokens->tokens[*i_ptr];
 
     // get option settings
@@ -243,88 +255,132 @@ void get_option_settings(RuleOption *option, Tokens *tokens, int *i_ptr) {
     (*i_ptr)++;
 }
 
+void inverse_negation_ip(RuleIp **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr) {
+    // 1. increment *i_ptr, make a copy of *nb_ip (=> start_ip)
+    (*i_ptr)++;
+    int start_ip = *nb_ip;
+
+    // 2. call the function recursively
+    get_rules_ip(ip_ptr, nb_ip, tokens, i_ptr);
+    
+    // 3. loop through the ips (start_ip -> *nb_ip) and inverse their negation
+    for (int j = start_ip; j < *nb_ip; j++) {
+        // inverse the ip's negation
+        RuleIp *ip = (*ip_ptr) + j * sizeof(RuleIp);
+        ip->negation = !ip->negation;
+    }
+}
+void inverse_negation_port(RulePort **port_ptr, int *nb_ports, Tokens *tokens, int *i_ptr) {
+    // 1. increment *i_ptr, make a copy of *nb_ports (=> start_port)
+    (*i_ptr)++;
+    int start_port = *nb_ports;
+
+    // 2. call the function recursively
+    get_rules_port(port_ptr, nb_ports, tokens, i_ptr);
+
+    // 3. loop through the ports (start_port -> *nb_ports) and inverse their negation
+    for (int j = start_port; j < *nb_ports; j++) {
+        // inverse the port's negation
+        RulePort *port = (*port_ptr) + j * sizeof(RulePort);
+        port->negation = !port->negation;
+    }
+}
+void get_ip_any(RuleIp **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr) {
+    // 1. increment *i_ptr, add a new ip
+    (*i_ptr)++;
+    increase_nb_ip(ip_ptr, nb_ip);
+    RuleIp *ip = (*ip_ptr) + ((*nb_ip) - 1) * sizeof(RuleIp);
+
+    // set the ip's fields
+    ip->negation = false;
+    ip->ip = -1;  // -1 => any
+
+    // NOTE: we don't need to set a netmask because it's "any" ip
+}
+void get_port_any(RulePort **port_ptr, int *nb_ports, Tokens *tokens, int *i_ptr) {
+    // increment *i_ptr, add a new port
+    (*i_ptr)++;
+    increase_nb_ports(port_ptr, nb_ports);
+    RulePort *port = (*port_ptr) + ((*nb_ports) - 1) * sizeof(RulePort);
+
+    // set the port's fields
+    port->negation = false;
+    port->start_port = 0;
+    port->end_port = -1;
+
+    // NOTE: 0 to -1 => any
+}
+void get_ip_list(RuleIp **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr) {
+    // loop until we get the closing ']'
+    while (strcmp(tokens->tokens[*i_ptr], "]") != 0) {
+        // 1. increase *i_ptr, to pass the '[' or the ','
+        (*i_ptr)++;
+        // 2. call the function recursively to get the ip
+        get_rules_ip(ip_ptr, nb_ip, tokens, i_ptr);
+    }
+
+    // for the closing ']'
+    (*i_ptr)++;
+}
+void get_port_list(RulePort **port_ptr, int *nb_ports, Tokens *tokens, int *i_ptr) {
+    // loop until we get the closing ']'
+    while (strcmp(tokens->tokens[*i_ptr], "]") != 0) {
+        // 1. increase *i_ptr, to pass the '[' or the ','
+        (*i_ptr)++;
+        // 2. call the function recursively to get the port
+        get_rules_port(port_ptr, nb_ports, tokens, i_ptr);
+    }
+
+    // for the closing ']'
+    (*i_ptr)++;
+}
+void get_ip_address(RuleIp **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr) {
+    // 1. increment *i_ptr, add an ip to the list
+    (*i_ptr)++;
+    increase_nb_ip(ip_ptr, nb_ip);
+    RuleIp *new_ip = &(*ip_ptr)[(*nb_ip) - 1];
+
+    // 2. get the ip and the netmask
+    new_ip->negation = false;
+    get_ip_and_netmask_from_str(tokens->tokens[*i_ptr], &new_ip->ip, &new_ip->netmask);
+}
+void get_port_address(RulePort **port_ptr, int *nb_ports, Tokens *tokens, int *i_ptr) {
+    // 1. increment *i_ptr, add a port to the list
+    (*i_ptr)++;
+    increase_nb_ports(port_ptr, nb_ports);
+    RulePort *port = (*port_ptr) + ((*nb_ports) - 1) * sizeof(RulePort);
+
+    // 2. get the port
+    port->negation = false;
+    get_port_from_str(port, tokens, i_ptr);
+}
+
+
 void get_rules_ip(RuleIp **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr) {
     if (strcmp(tokens->tokens[*i_ptr], "!") == 0) {
-        // 1. increment *i_ptr, make a copy of *nb_ip (=> start_ip)
-        (*i_ptr)++;
-        int start_ip = *nb_ip;
-        // 2. call the function recursively
-        get_rules_ip(ip_ptr, nb_ip, tokens, i_ptr);
-        // 3. loop though the ip (start_ip -> *nb_ip) and inverse their negation
-        for (int j = start_ip; j < *nb_ip; j++) {
-            // inverse the ip's negation
-            RuleIp *ip = (*ip_ptr) + j * sizeof(RuleIp);
-            ip->negation = !ip->negation;
-        }
+        inverse_negation_ip(ip_ptr, nb_ip, tokens, i_ptr);
     } else if (strcmp(tokens->tokens[*i_ptr], "any") == 0) {
-        (*i_ptr)++;
-        increase_nb_ip(ip_ptr, nb_ip);
-        // set the ip's fields
-        // NOTE: we don't need to set a netmask because it's any ip
-        RuleIp *ip = (*ip_ptr) + ((*nb_ip) - 1) * sizeof(RuleIp);
-        ip->negation = false;
-        ip->ip = -1;  // -1 => any
+        get_ip_any(ip_ptr, nb_ip, tokens, i_ptr);
     } else if (strcmp(tokens->tokens[*i_ptr], "[") == 0) {
-        // loop until we get the closing ']'
-        while (strcmp(tokens->tokens[*i_ptr], "]") != 0) {
-            // 1. increase *i_ptr, to pass the '[' or the ','
-            (*i_ptr)++;
-            // 2. call the function recursively to get the ip
-            get_rules_ip(ip_ptr, nb_ip, tokens, i_ptr);
-        }
+        get_ip_list(ip_ptr, nb_ip, tokens, i_ptr);
     } else {
-        // 1. increment *i_ptr
-        (*i_ptr)++;
-        // 2. add an ip to the list
-        increase_nb_ip(ip_ptr, nb_ip);
-        // 3. get the ip and the netmask
-        RuleIp *new_ip = &(*ip_ptr)[(*nb_ip) - 1];
-        new_ip->negation = false;
-        get_ip_and_netmask_from_str(tokens->tokens[*i_ptr], &new_ip->ip,
-                                    &new_ip->netmask);
+        get_ip_address(ip_ptr, nb_ip, tokens, i_ptr);
     }
 }
 void get_rules_port(RulePort **port_ptr, int *nb_ports, Tokens *tokens,
                     int *i_ptr) {
     if (strcmp(tokens->tokens[*i_ptr], "!") == 0) {
-        // get all the ports affected by the '!', then inverse them
-        (*i_ptr)++;
-        int start_port = *nb_ports;
-        get_rules_port(port_ptr, nb_ports, tokens, i_ptr);
-
-        for (int j = start_port; j < *nb_ports; j++) {
-            // inverse the port's negation
-            RulePort *port = (*port_ptr) + j * sizeof(RulePort);
-            port->negation = !port->negation;
-        }
+        inverse_negation_port(port_ptr, nb_ports, tokens, i_ptr);
     } else if (strcmp(tokens->tokens[*i_ptr], "any") == 0) {
-        (*i_ptr)++;
-        increase_nb_ports(port_ptr, nb_ports);
-        RulePort *port = (*port_ptr) + ((*nb_ports) - 1) * sizeof(RulePort);
-        // set the port's fields
-        port->negation = false;
-        // 0 to -1 => any
-        port->start_port = 0;
-        port->end_port = -1;
+        get_port_any(port_ptr, nb_ports, tokens, i_ptr);
     } else if (strcmp(tokens->tokens[*i_ptr], "[") == 0) {
-        // loop until we get the closing ']'
-        while (strcmp(tokens->tokens[*i_ptr], "]") != 0) {
-            // 1. increase *i_ptr, to pass the '[' or the ','
-            (*i_ptr)++;
-            // 2. call the function recursively to get the port
-            get_rules_port(port_ptr, nb_ports, tokens, i_ptr);
-        }
+        get_port_list(port_ptr, nb_ports, tokens, i_ptr);
     } else {
-        // add a port to the list
-        increase_nb_ports(port_ptr, nb_ports);
-        // get the port
-        RulePort *port = (*port_ptr) + ((*nb_ports) - 1) * sizeof(RulePort);
-        port->negation = false;
-        get_port_from_str(port, tokens, i_ptr);
+        get_port_address(port_ptr, nb_ports, tokens, i_ptr);
     }
 }
 
-int get_rule_action(Rule *rule, Tokens *tokens, int *i_ptr) {
+void get_rule_action(Rule *rule, Tokens *tokens, int *i_ptr) {
     if (strcmp(tokens->tokens[*i_ptr], "alert") == 0) {
         rule->action = Alert;
     } else if (strcmp(tokens->tokens[*i_ptr], "pass") == 0) {
@@ -340,14 +396,10 @@ int get_rule_action(Rule *rule, Tokens *tokens, int *i_ptr) {
     } else if (strcmp(tokens->tokens[*i_ptr], "rejectboth") == 0) {
         rule->action = Rejectboth;
     }
-    // else {
-    //     return ERROR_ACTION_EXPECTED;
-    // }
 
     (*i_ptr)++;
-    return 0;
 }
-int get_rule_protocol(Rule *rule, Tokens *tokens, int *i_ptr) {
+void get_rule_protocol(Rule *rule, Tokens *tokens, int *i_ptr) {
     if (strcmp(tokens->tokens[*i_ptr], "tcp") == 0) {
         rule->protocol = Tcp;
     } else if (strcmp(tokens->tokens[*i_ptr], "udp") == 0) {
@@ -377,12 +429,8 @@ int get_rule_protocol(Rule *rule, Tokens *tokens, int *i_ptr) {
     } else if (strcmp(tokens->tokens[*i_ptr], "dns") == 0) {
         rule->protocol = Dns;
     }
-    // else {
-    //     return ERROR_PROTOCOL_EXPECTED;
-    // }
 
     (*i_ptr)++;
-    return 0;
 }
 void get_rule_source_ip(Rule *rule, Tokens *tokens, int *i_ptr) {
     get_rules_ip(&rule->sources, &rule->nb_sources, tokens, i_ptr);
@@ -396,9 +444,6 @@ void get_rule_direction(Rule *rule, Tokens *tokens, int *i_ptr) {
     } else if (strcmp(tokens->tokens[*i_ptr], "<>") == 0) {
         rule->direction = Both_directions;
     }
-    // else {
-    //     return ERROR_DIRECTION_EXPECTED;
-    // }
 
     (*i_ptr)++;
 }
@@ -418,9 +463,11 @@ void get_rule_options(Rule *rule, Tokens *tokens, int *i_ptr) {
 
     // get all options
     while (strcmp(token, ")") != 0) {
-        // add new option & initialize it
+        // add new option
         increase_nb_options(&rule->options, &rule->nb_options);
         RuleOption *option = &rule->options[rule->nb_options - 1];
+
+        // initialize the new option
         option->keyword = NULL;
         option->settings = NULL;
         option->nb_settings = 0;
@@ -479,20 +526,14 @@ void read_rules(FILE *file, Rule **rules_ptr, int *count) {
     tokenize_rules(file, &tokens);
 
     // 2. close the file handle
-    // int error_code = fclose(file);
-    // if (error_code != 0) {
-    //     return FILE_NOT_CLOSED_ERROR;
-    // }
     fclose(file);
 
     // 3. extract the rules
     extract_rules(rules_ptr, count, &tokens);
 
     // 4. free tokens
-    // 4.1. free every token
     for (size_t i = 0; i < tokens.nb_tokens; i++) {
         free(tokens.tokens[i]);
     }
-    // 4.2. free the tokens list
     free(tokens.tokens);
 }
