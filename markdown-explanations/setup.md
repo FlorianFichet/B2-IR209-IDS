@@ -39,3 +39,13 @@ Content of the setting:
 How to build and debug the project:
 
 ![debug the project](./images/setup-07.PNG)
+
+Note: to check for memory leaks, it is very useful to run the program using valgrind:
+
+    valgrind --leak-check=full \
+         --show-leak-kinds=all \
+         --track-origins=yes \
+         --verbose \
+         ./ids
+
+If the program has been compiled with a debug flag, it should even give the line where the memory was allocated.
