@@ -200,7 +200,7 @@ int get_ip_and_netmask_from_str(char *ip_str, int *ip_int, char *netmask) {
 
     return 0;
 }
-int get_port_from_str(RulePort *port, Tokens *tokens, int *i_ptr) {
+void get_port_from_str(RulePort *port, Tokens *tokens, int *i_ptr) {
     // 1. get start_port
     port->start_port = atoi(tokens->tokens[*i_ptr]);
     // 2. check if the next token is ':'
@@ -228,7 +228,7 @@ void get_rules_ip(RuleIp **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr) {
         // 3. loop though the ip (start_ip -> *nb_ip) and inverse their negation
         for (int j = start_ip; j < *nb_ip; j++) {
             // inverse the ip's negation
-            (*ip_ptr)[j].negation != (*ip_ptr)[j].negation;
+            (*ip_ptr)[j].negation = !(*ip_ptr)[j].negation;
         }
     } else if (strcmp(tokens->tokens[*i_ptr], "any") == 0) {
         (*i_ptr)++;
@@ -265,7 +265,7 @@ void get_rules_port(RulePort **port_ptr, int *nb_ports, Tokens *tokens,
         get_rules_port(port_ptr, nb_ports, tokens, i_ptr);
         for (int j = start_port; j < *nb_ports; j++) {
             // inverse the port's negation
-            (*port_ptr)[j].negation != (*port_ptr)[j].negation;
+            (*port_ptr)[j].negation = !(*port_ptr)[j].negation;
         }
     } else if (strcmp(tokens->tokens[*i_ptr], "any") == 0) {
         (*i_ptr)++;
@@ -353,21 +353,21 @@ int get_rule_protocol(Rule *rule, Tokens *tokens, int *i_ptr) {
     (*i_ptr)++;
     return 0;
 }
-int get_rule_source_ip(Rule *rule, Tokens *tokens, int *i_ptr) {
+void get_rule_source_ip(Rule *rule, Tokens *tokens, int *i_ptr) {
     // it needs to be initialized here because the next function calls itself
     // recursively and therefore can't initialize these fields
     rule->sources = NULL;
     rule->nb_sources = 0;
     get_rules_ip(&rule->sources, &rule->nb_sources, tokens, i_ptr);
 }
-int get_rule_source_port(Rule *rule, Tokens *tokens, int *i_ptr) {
+void get_rule_source_port(Rule *rule, Tokens *tokens, int *i_ptr) {
     // it needs to be initialized here because the next function calls itself
     // recursively and therefore can't initialize these fields
     rule->source_ports = NULL;
     rule->nb_source_ports = 0;
     get_rules_port(&rule->source_ports, &rule->nb_source_ports, tokens, i_ptr);
 }
-int get_rule_direction(Rule *rule, Tokens *tokens, int *i_ptr) {
+void get_rule_direction(Rule *rule, Tokens *tokens, int *i_ptr) {
     if (strcmp(tokens->tokens[*i_ptr], "->") == 0) {
         rule->direction = Forward;
     } else if (strcmp(tokens->tokens[*i_ptr], "<>") == 0) {
@@ -378,16 +378,15 @@ int get_rule_direction(Rule *rule, Tokens *tokens, int *i_ptr) {
     // }
 
     (*i_ptr)++;
-    return 0;
 }
-int get_rule_destination_ip(Rule *rule, Tokens *tokens, int *i_ptr) {
+void get_rule_destination_ip(Rule *rule, Tokens *tokens, int *i_ptr) {
     // it needs to be initialized here because the next function calls itself
     // recursively and therefore can't initialize these fields
     rule->destinations = NULL;
     rule->nb_destinations = 0;
     get_rules_ip(&rule->destinations, &rule->nb_destinations, tokens, i_ptr);
 }
-int get_rule_destination_port(Rule *rule, Tokens *tokens, int *i_ptr) {
+void get_rule_destination_port(Rule *rule, Tokens *tokens, int *i_ptr) {
     // it needs to be initialized here because the next function calls itself
     // recursively and therefore can't initialize these fields
     rule->destination_ports = NULL;
@@ -395,7 +394,7 @@ int get_rule_destination_port(Rule *rule, Tokens *tokens, int *i_ptr) {
     get_rules_port(&rule->destination_ports, &rule->nb_destination_ports,
                    tokens, i_ptr);
 }
-int get_rule_options(Rule *rule, Tokens *tokens, int *i_ptr) {
+void get_rule_options(Rule *rule, Tokens *tokens, int *i_ptr) {
     // initialize nb_options and options
     rule->options = NULL;
     rule->nb_options = 0;
