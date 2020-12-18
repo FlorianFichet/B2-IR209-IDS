@@ -26,7 +26,6 @@ Content of the setting:
     {
         BasedOnStyle: Google,
         IndentWidth: 4,
-        AllowShortBlocksOnASingleLine: Always,
         MaxEmptyLinesToKeep: 2,
         IndentPPDirectives: BeforeHash
     }
