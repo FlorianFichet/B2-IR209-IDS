@@ -75,18 +75,10 @@ int main(int argc, char *argv[]) {
         Rule *rule = &rules[i];
 
         // free ip/ports sources/destinations
-        if (rule->sources != NULL) {
-            free(rule->sources);
-        }
-        if (rule->destinations != NULL) {
-            free(rule->destinations);
-        }
-        if (rule->source_ports != NULL) {
-            free(rule->source_ports);
-        }
-        if (rule->destination_ports != NULL) {
-            free(rule->destination_ports);
-        }
+        free(rule->sources);
+        free(rule->destinations);
+        free(rule->source_ports);
+        free(rule->destination_ports);
 
         // free options
         for (int j = 0; j < rule->nb_options; j++) {
@@ -95,6 +87,9 @@ int main(int argc, char *argv[]) {
                 if (rule->options[j].settings[k] != NULL) {
                     free(rule->options[j].settings[k]);
                 }
+            }
+            if (rule->options[j].settings != NULL) {
+                free(rule->options[j].settings);
             }
             if (rule->options[j].keyword != NULL) {
                 free(rule->options[j].keyword);

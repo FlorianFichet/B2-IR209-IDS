@@ -11,10 +11,16 @@ struct rules_tokens {
 } typedef Tokens;
 
 
+void get_rules_ip(RuleIp **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr);
+void get_rules_port(RulePort **port_ptr, int *nb_ports, Tokens *tokens,
+                    int *i_ptr);
+
+
 void increase_nb_tokens(Tokens *tokens) {
     // resize : (char**) tokens->tokens
     tokens->nb_tokens++;
-    tokens->tokens = realloc(tokens->tokens, tokens->nb_tokens * sizeof(char *));
+    tokens->tokens =
+        realloc(tokens->tokens, tokens->nb_tokens * sizeof(char *));
 }
 void increase_nb_rules(Rule **rules_ptr, int *nb_rules) {
     (*nb_rules)++;
@@ -33,13 +39,14 @@ void increase_nb_options(RuleOption **options_ptr, int *nb_options) {
     (*options_ptr) =
         realloc((*options_ptr), (*nb_options) * sizeof(RuleOption));
 }
-void increase_nb_option_settings(char ***settings, int *nb_settings) {
+void increase_nb_option_settings(char ***settings_ptr, int *nb_settings) {
     (*nb_settings)++;
-    (*settings) = realloc((*settings), (*nb_settings) * sizeof(char **));
+    (*settings_ptr) = realloc((*settings_ptr), (*nb_settings) * sizeof(char **));
 }
 
 
-// we need a custom made function because the token we want copy doesn't end with '\0'
+// we need a custom made function because the token we want copy doesn't end
+// with '\0'
 void copy_token(char *token, int token_size, Tokens *tokens) {
     // copy the token into the allocated space
     char *s = tokens->tokens[tokens->nb_tokens - 1];
@@ -255,14 +262,15 @@ void get_option_settings(RuleOption *option, Tokens *tokens, int *i_ptr) {
     (*i_ptr)++;
 }
 
-void inverse_negation_ip(RuleIp **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr) {
+void inverse_negation_ip(RuleIp **ip_ptr, int *nb_ip, Tokens *tokens,
+                         int *i_ptr) {
     // 1. increment *i_ptr, make a copy of *nb_ip (=> start_ip)
     (*i_ptr)++;
     int start_ip = *nb_ip;
 
     // 2. call the function recursively
     get_rules_ip(ip_ptr, nb_ip, tokens, i_ptr);
-    
+
     // 3. loop through the ips (start_ip -> *nb_ip) and inverse their negation
     for (int j = start_ip; j < *nb_ip; j++) {
         // inverse the ip's negation
@@ -270,7 +278,8 @@ void inverse_negation_ip(RuleIp **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr
         ip->negation = !ip->negation;
     }
 }
-void inverse_negation_port(RulePort **port_ptr, int *nb_ports, Tokens *tokens, int *i_ptr) {
+void inverse_negation_port(RulePort **port_ptr, int *nb_ports, Tokens *tokens,
+                           int *i_ptr) {
     // 1. increment *i_ptr, make a copy of *nb_ports (=> start_port)
     (*i_ptr)++;
     int start_port = *nb_ports;
@@ -278,7 +287,8 @@ void inverse_negation_port(RulePort **port_ptr, int *nb_ports, Tokens *tokens, i
     // 2. call the function recursively
     get_rules_port(port_ptr, nb_ports, tokens, i_ptr);
 
-    // 3. loop through the ports (start_port -> *nb_ports) and inverse their negation
+    // 3. loop through the ports (start_port -> *nb_ports) and inverse their
+    // negation
     for (int j = start_port; j < *nb_ports; j++) {
         // inverse the port's negation
         RulePort *port = (*port_ptr) + j * sizeof(RulePort);
@@ -297,7 +307,8 @@ void get_ip_any(RuleIp **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr) {
 
     // NOTE: we don't need to set a netmask because it's "any" ip
 }
-void get_port_any(RulePort **port_ptr, int *nb_ports, Tokens *tokens, int *i_ptr) {
+void get_port_any(RulePort **port_ptr, int *nb_ports, Tokens *tokens,
+                  int *i_ptr) {
     // increment *i_ptr, add a new port
     (*i_ptr)++;
     increase_nb_ports(port_ptr, nb_ports);
@@ -322,7 +333,8 @@ void get_ip_list(RuleIp **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr) {
     // for the closing ']'
     (*i_ptr)++;
 }
-void get_port_list(RulePort **port_ptr, int *nb_ports, Tokens *tokens, int *i_ptr) {
+void get_port_list(RulePort **port_ptr, int *nb_ports, Tokens *tokens,
+                   int *i_ptr) {
     // loop until we get the closing ']'
     while (strcmp(tokens->tokens[*i_ptr], "]") != 0) {
         // 1. increase *i_ptr, to pass the '[' or the ','
@@ -342,9 +354,11 @@ void get_ip_address(RuleIp **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr) {
 
     // 2. get the ip and the netmask
     new_ip->negation = false;
-    get_ip_and_netmask_from_str(tokens->tokens[*i_ptr], &new_ip->ip, &new_ip->netmask);
+    get_ip_and_netmask_from_str(tokens->tokens[*i_ptr], &new_ip->ip,
+                                &new_ip->netmask);
 }
-void get_port_address(RulePort **port_ptr, int *nb_ports, Tokens *tokens, int *i_ptr) {
+void get_port_address(RulePort **port_ptr, int *nb_ports, Tokens *tokens,
+                      int *i_ptr) {
     // 1. increment *i_ptr, add a port to the list
     (*i_ptr)++;
     increase_nb_ports(port_ptr, nb_ports);
@@ -490,7 +504,7 @@ void extract_rules(Rule **rules_ptr, int *nb_rules, Tokens *tokens) {
     while (i < tokens->nb_tokens) {
         // add an empty rule to the list
         increase_nb_rules(rules_ptr, nb_rules);
-        Rule *rule = (*rules_ptr) + ((*nb_rules) - 1) * sizeof(Rule);
+        Rule *rule = (*rules_ptr) + ((*nb_rules) - 1);
 
         // initialize the rule
         rule->nb_sources = 0;
