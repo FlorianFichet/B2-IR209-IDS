@@ -72,6 +72,32 @@ struct ipv4_datagram {
 } typedef Ipv4Datagram;
 
 
+enum data_link_protocol {
+    DLP_Ethernet,
+    DLP_None,
+} typedef DataLinkProtocol;
+enum network_protocol {
+    NP_Ipv4,
+    NP_Ipv6,
+    NP_Arp,
+    NP_None,
+} typedef NetworkProtocol;
+enum application_protocol {
+    AP_Http,
+    AP_None,
+} typedef ApplicationProtocol;
+
+struct packet {
+    DataLinkProtocol data_link_protocol;
+    NetworkProtocol network_protocol;
+    ApplicationProtocol application_protocol;
+
+    void *data_link_header;
+    void *network_header;
+    void *application_header;
+} typedef Packet;
+
+
 /* TCP header */
 typedef u_int tcp_seq;
 
