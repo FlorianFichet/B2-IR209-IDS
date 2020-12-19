@@ -47,4 +47,6 @@ Note: to check for memory leaks, it is very useful to run the program using valg
          --verbose \
          ./ids
 
-If the program has been compiled with a debug flag, it should even give the line where the memory was allocated.
+If the program has been compiled with a debug flag, it should even give the line where the memory was allocated. The goal is to obtain the following result:
+
+![valgrind result](./images/valgrind-01.PNG)

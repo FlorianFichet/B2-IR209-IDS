@@ -1,9 +1,15 @@
 #include <netinet/if_ether.h>
 #include <netinet/in.h>
 #include <pcap.h>
+#include <stdint.h>
 #include <string.h>
 
-/* Ethernet addresses are 6 bytes */
+
+#define SIZE_MAC_ADDRESS 6
+#define SIZE_IPV4_ADDRESS 4
+#define SIZE_ETHERNET_HEADER 14
+
+
 #define SIZE_ETHERNET 14
 #define ETHER_ADDR_LEN_STR 18
 #define IP_ADDR_LEN_STR 16
@@ -16,10 +22,10 @@
 
 #define ERROR -1
 
-#define IP_RF 0x8000               /* reserved fragment flag */
-#define IP_DF 0x4000               /* don't fragment flag */
-#define IP_MF 0x2000               /* more fragments flag */
-#define IP_OFFMASK 0x1fff          /* mask for fragmenting bits */
+#define IP_RF 0x8000      /* reserved fragment flag */
+#define IP_DF 0x4000      /* don't fragment flag */
+#define IP_MF 0x2000      /* more fragments flag */
+#define IP_OFFMASK 0x1fff /* mask for fragmenting bits */
 
 #define IP_HL(ip) (((ip)->ip_vhl) & 0x0f)
 #define IP_V(ip) (((ip)->ip_vhl) >> 4)
@@ -35,6 +41,46 @@
 #define TH_ECE 0x40
 #define TH_CWR 0x80
 #define TH_FLAGS (TH_FIN | TH_SYN | TH_RST | TH_ACK | TH_URG | TH_ECE | TH_CWR)
+
+
+struct ethernet_frame {
+    uint8_t mac_destination[SIZE_MAC_ADDRESS];
+    uint8_t mac_source[SIZE_MAC_ADDRESS];
+    uint16_t protocol_type;
+    void *ethernet_body;
+} typedef EthernetFrame;
+///////////////////////////////////////////////////////////////////////////////
+// NOTE: the order of the fields might seem weird, it's because of endianess //
+//         0       1       2       3       4                                 //
+//         0123456701234567012345670123456701234567                          //
+// ip:     |ver|len|...                                                      //
+// struct: |len|ver|...                                                      //
+///////////////////////////////////////////////////////////////////////////////
+struct ipv4_datagram {
+    uint8_t header_length : 4;  // words of 32 bits
+    uint8_t ip_version : 4;
+    uint8_t type_of_service;
+    uint16_t total_length;  // words of 32 bits
+    uint16_t identification;
+    uint8_t flag_more_fragments : 1;
+    uint8_t flag_dont_fragment : 1;
+    uint8_t flag_reserved : 1;
+    uint16_t fragment_offset : 13;
+    uint8_t time_to_live;
+    uint8_t protocol;
+    uint16_t header_checksum;
+    uint32_t ip_source;
+    uint32_t ip_destination;
+    void *ip_body;
+} typedef Ipv4Datagram;
+
+
+EthernetFrame populate_data_link(const u_char *packet_body);
+Ipv4Datagram populate_network_layer(void *ethernet_body);
+void print_ethernet_header(EthernetFrame ethernet);
+void print_ipv4_datagram(Ipv4Datagram ipv4);
+void dump_memory(void *start, size_t size);
+
 
 /* Ethernet header */
 struct sniff_ethernet {
@@ -75,7 +121,6 @@ struct custom_udp {
     int source_port;
     int destination_port;
     unsigned char *data;
-
 } typedef UDP_Packet;
 
 struct custom_tcp {
@@ -86,14 +131,12 @@ struct custom_tcp {
     int th_flag;
     unsigned char *data;
     int data_length;
-
 } typedef TCP_Segment;
 
 struct custom_ip {
     char source_ip[IP_ADDR_LEN_STR];
     char destination_ip[IP_ADDR_LEN_STR];
     TCP_Segment data;
-
 } typedef IP_Packet;
 
 struct custom_ethernet {
@@ -102,7 +145,6 @@ struct custom_ethernet {
     int ethernet_type;
     int frame_size;
     IP_Packet data;
-
 } typedef ETHER_Frame;
 
 int populate_packet_ds(const struct pcap_pkthdr *header, const u_char *packet,

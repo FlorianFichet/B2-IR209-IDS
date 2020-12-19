@@ -12,8 +12,79 @@ uint32_t convert_endianess_32bits(uint32_t nb) {
     uint32_t result = ((nb >> 24))                // move 1-st byte to 4-th byte
                       | ((nb << 24))              // move 4-th byte to 1-st byte
                       | ((nb >> 8) & 0x0000ff00)  // move 2-nd byte to 3-rd byte
-                      | ((nb << 8) & 0x00ff0000);  // move 3-rd byte to 2-nd byte
+                      |
+                      ((nb << 8) & 0x00ff0000);  // move 3-rd byte to 2-nd byte
     return result;
+}
+
+
+EthernetFrame populate_data_link(const u_char *packet_body) {
+    struct ethernet_frame *ethernet = packet_body;
+
+    // convert the endianness of the protocol type
+    ethernet->protocol_type = convert_endianess_16bits(ethernet->protocol_type);
+
+    // get the ethernet frame's body
+    ethernet->ethernet_body = (void *)ethernet + SIZE_ETHERNET_HEADER;
+
+    return *ethernet;
+}
+Ipv4Datagram populate_network_layer(void *ethernet_body) {
+    Ipv4Datagram *ipv4 = ethernet_body;
+    // NOTE: no need to cnvert the endianess here because the header length is
+    // coded on only 1 byte
+    ipv4->ip_body = (void *)ipv4 + ipv4->header_length;
+    return *ipv4;
+}
+
+
+void get_ethernet_protocol_name(uint16_t protocol_type, char *protocol_name) {
+    if (protocol_type == 2048) {
+        strcpy(protocol_name, "Internet Protocol version 4 (IPv4)");
+    }
+}
+void print_ethernet_header(EthernetFrame ethernet) {
+    char protocol_name[50] = "unknown protocol";
+    get_ethernet_protocol_name(ethernet.protocol_type, protocol_name);
+
+    // display the mac addresses
+    printf("    mac destination: %02x:%02x:%02x:%02x:%02x:%02x\n",
+           ethernet.mac_destination[0], ethernet.mac_destination[1],
+           ethernet.mac_destination[2], ethernet.mac_destination[3],
+           ethernet.mac_destination[4], ethernet.mac_destination[5]);
+    printf("    mac source: %02x:%02x:%02x:%02x:%02x:%02x\n",
+           ethernet.mac_source[0], ethernet.mac_source[1],
+           ethernet.mac_source[2], ethernet.mac_source[3],
+           ethernet.mac_source[4], ethernet.mac_source[5]);
+
+    // display the network protocol
+    printf("    protocol type: %d", ethernet.protocol_type);
+    printf(" -- %s\n", protocol_name);
+}
+void print_ipv4_datagram(Ipv4Datagram ipv4) {
+    printf("    ip version: %d\n", ipv4.ip_version);
+    printf("    header length: %d\n", ipv4.header_length);
+    printf("    type of service: %d\n", ipv4.type_of_service);
+    printf("    total length: %d\n", ipv4.total_length);
+    printf("    identification: %d\n", ipv4.identification);
+    printf("    flag more fragments: %d\n", ipv4.flag_more_fragments);
+    printf("    flag don't fragment: %d\n", ipv4.flag_dont_fragment);
+    printf("    flag reserved: %d\n", ipv4.flag_reserved);
+    printf("    fragment offset: %d\n", ipv4.fragment_offset);
+    printf("    time to live: %d\n", ipv4.time_to_live);
+    printf("    protocol: %d\n", ipv4.protocol);
+    printf("    header checksum: %d\n", ipv4.header_checksum);
+    printf("    ip source: %d\n", ipv4.ip_source);
+    printf("    ip destination: %d\n", ipv4.ip_destination);
+}
+void dump_memory(void *start, size_t size) {
+    int i = 0;
+    while (i < size) {
+        if (i % 16 == 15) { printf("\n    "); }
+        printf("%02x ", *(uint8_t *)(start + i));
+        i++;
+    }
+    printf("\n");
 }
 
 
