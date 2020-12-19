@@ -66,6 +66,25 @@ void get_ethernet_protocol_name(uint16_t protocol_type, char *protocol_name) {
             break;
     }
 }
+void get_internet_protocol_name(u_char protocol_type, char *protocol_name) {
+    switch (protocol_type) {
+        case 0:
+            strcpy(protocol_name, "IPv6 Hop-by-Hop Option (HOPOPT)");
+            break;
+        case 1:
+            strcpy(protocol_name, "Internet Control Message (ICMP)");
+            break;
+        case 6:
+            strcpy(protocol_name, "Transmission Control (TCP)");
+            break;
+        case 17:
+            strcpy(protocol_name, "User Datagram (UDP)");
+            break;
+
+        default:
+            break;
+    }
+}
 char *get_ipv4_address_string(u_int ip, char *s) {
     // an array of int to prevent overflow
     u_int bytes[4];
@@ -100,6 +119,8 @@ void print_ethernet_header(EthernetFrame ethernet) {
 }
 void print_ipv4_datagram(Ipv4Datagram ipv4) {
     char ipv4_str[IPV4_ADDR_LEN_STR];
+    char protocol_name[50] = "unknown protocol";
+    get_internet_protocol_name(ipv4.ip_protocol, protocol_name);
 
     printf("ipv4 header:\n");
 
@@ -113,7 +134,7 @@ void print_ipv4_datagram(Ipv4Datagram ipv4) {
     printf("    flag more fragments: %u\n", IP_FLAG_VALUE(ipv4, IP_MF));
     printf("    fragment offset: %u\n", IP_OFFSET_VALUE(ipv4, IP_OFFMASK));
     printf("    time to live: %u\n", ipv4.ip_time_to_live);
-    printf("    protocol: %u\n", ipv4.ip_protocol);
+    printf("    protocol: %u -- %s\n", ipv4.ip_protocol, protocol_name);
     printf("    header checksum: %u\n", ipv4.ip_checksum);
     printf("    ip source: %s\n",
            get_ipv4_address_string(ipv4.ip_source, ipv4_str));
@@ -132,18 +153,6 @@ void dump_memory(void *start, size_t size) {
     printf("\n");
 }
 
-
-// void print_payload(int payload_length, unsigned char *payload) {
-//     if (payload_length > 0) {
-//         const u_char *temp_pointer = payload;
-//         int byte_count = 0;
-//         while (byte_count++ < payload_length) {
-//             printf("%c", (char)*temp_pointer);
-//             temp_pointer++;
-//         }
-//         printf("\n");
-//     }
-// }
 
 // int populate_packet_ds(const struct pcap_pkthdr *header, const u_char
 // *packet,
