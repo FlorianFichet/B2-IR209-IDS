@@ -32,15 +32,14 @@ int get_activated_handle(pcap_t **handle_ptr, char device[],
 void rule_matcher(Rule *rules_ds, ETHER_Frame *frame) {}
 void my_packet_handler(u_char *args, const struct pcap_pkthdr *header,
                        const u_char *packet) {
-    ETHER_Frame custom_frame;
-    populate_packet_ds(header, packet, &custom_frame);
+    // ETHER_Frame custom_frame;
+    // populate_packet_ds(header, packet, &custom_frame);
 
     EthernetFrame ethernet = populate_data_link(packet);
     Ipv4Datagram ipv4 = populate_network_layer(ethernet.ethernet_body);
-    
+
     print_ethernet_header(ethernet);
     print_ipv4_datagram(ipv4);
-    dump_memory((void*)&ipv4, ipv4.header_length);
 }
 
 
