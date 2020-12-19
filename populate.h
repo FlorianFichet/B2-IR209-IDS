@@ -42,12 +42,16 @@
 #define TH_CWR 0x80
 #define TH_FLAGS (TH_FIN | TH_SYN | TH_RST | TH_ACK | TH_URG | TH_ECE | TH_CWR)
 
+#define TCP_OFFSET_VALUE(tcp, mask) \
+    (((tcp).th_offset_reserved_flag_ns) & (mask))
+#define TCP_FLAG_NS_VALUE(tcp) (((tcp).th_offset_reserved_flag_ns) & 1)
+#define TCP_FLAG_VALUE(tcp, mask) ((((tcp).th_flags) & (mask)) ? 1 : 0)
+
 
 struct ethernet_frame {
     u_char mac_destination[ETHER_ADDR_LEN];
     u_char mac_source[ETHER_ADDR_LEN];
     u_short ether_protocol_type;
-    void *ethernet_body;
 } typedef EthernetFrame;
 ///////////////////////////////////////////////////////////////////////////////
 // NOTE: the order of the fields might seem weird, it's because of how the   //
@@ -67,9 +71,20 @@ struct ipv4_datagram {
     u_char ip_time_to_live;
     u_char ip_protocol;
     u_short ip_checksum;
-    u_int ip_source, ip_destination;
-    void *ip_body;
+    u_int ip_source;
+    u_int ip_destination;
 } typedef Ipv4Datagram;
+struct tcp_segment {
+    u_short th_source_port;
+    u_short th_destination_port;
+    u_int th_sequence_num;
+    u_int th_acknowledgement_num;
+    u_char th_offset_reserved_flag_ns;
+    u_char th_flags;
+    u_short th_window;
+    u_short th_checksum;
+    u_short th_urgent_pointer;
+} typedef TcpSegment;
 
 
 enum data_link_protocol {

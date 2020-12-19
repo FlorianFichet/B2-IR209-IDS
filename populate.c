@@ -27,9 +27,6 @@ EthernetFrame populate_data_link(const u_char *packet_body) {
     ethernet->ether_protocol_type =
         convert_endianess_16bits(ethernet->ether_protocol_type);
 
-    // get the ethernet frame's body
-    ethernet->ethernet_body = (void *)ethernet + SIZE_ETHERNET_HEADER;
-
     return *ethernet;
 }
 Ipv4Datagram populate_network_layer(void *ethernet_body) {
@@ -42,9 +39,6 @@ Ipv4Datagram populate_network_layer(void *ethernet_body) {
 
     ipv4->ip_source = convert_endianess_32bits(ipv4->ip_source);
     ipv4->ip_destination = convert_endianess_32bits(ipv4->ip_destination);
-
-    // *4 => coded on 4 bytes (32 bits)
-    ipv4->ip_body = (void *)ipv4 + ipv4->ip_header_length * 4;
 
     return *ipv4;
 }
@@ -154,89 +148,87 @@ void dump_memory(void *start, size_t size) {
 }
 
 
-// int populate_packet_ds(const struct pcap_pkthdr *header, const u_char
-// *packet,
-//                        ETHER_Frame *custom_frame) {
-//     const EthernetFrame *ethernet; /* The ethernet header */
-//     const Ipv4Datagram *ip;        /* The IP header */
-//     const struct sniff_tcp *tcp;   /* The TCP header */
-//     unsigned char *payload;        /* Packet payload */
+int populate_packet_ds(const struct pcap_pkthdr *header, const u_char *packet,
+                       ETHER_Frame *custom_frame) {
+    const EthernetFrame *ethernet; /* The ethernet header */
+    const Ipv4Datagram *ip;        /* The IP header */
+    const struct sniff_tcp *tcp;   /* The TCP header */
+    unsigned char *payload;        /* Packet payload */
 
-//     u_int size_ip;
-//     u_int size_tcp;
+    u_int size_ip;
+    u_int size_tcp;
 
-//     ethernet = (EthernetFrame *)(packet);
-//     // ETHER_Frame custom_frame;
-//     char src_mac_address[ETHER_ADDR_LEN_STR];
-//     char dst_mac_address[ETHER_ADDR_LEN_STR];
-//     custom_frame->frame_size = header->caplen;
-//     // Convert unsigned char MAC to string MAC
-//     for (int x = 0; x < 6; x++) {
-//         snprintf(src_mac_address + (x * 2), ETHER_ADDR_LEN_STR, "%02x",
-//                  ethernet->mac_source[x]);
-//         snprintf(dst_mac_address + (x * 2), ETHER_ADDR_LEN_STR, "%02x",
-//                  ethernet->mac_destination[x]);
-//     }
+    ethernet = (EthernetFrame *)(packet);
+    // ETHER_Frame custom_frame;
+    char src_mac_address[ETHER_ADDR_LEN_STR];
+    char dst_mac_address[ETHER_ADDR_LEN_STR];
+    custom_frame->frame_size = header->caplen;
+    // Convert unsigned char MAC to string MAC
+    for (int x = 0; x < 6; x++) {
+        snprintf(src_mac_address + (x * 2), ETHER_ADDR_LEN_STR, "%02x",
+                 ethernet->mac_source[x]);
+        snprintf(dst_mac_address + (x * 2), ETHER_ADDR_LEN_STR, "%02x",
+                 ethernet->mac_destination[x]);
+    }
 
-//     strcpy(custom_frame->source_mac, src_mac_address);
-//     strcpy(custom_frame->destination_mac, dst_mac_address);
+    strcpy(custom_frame->source_mac, src_mac_address);
+    strcpy(custom_frame->destination_mac, dst_mac_address);
 
-//     if (ntohs(ethernet->ether_protocol_type) == ETHERTYPE_ARP) {
-//         custom_frame->ethernet_type = ARP_PROTOCOL;
-//         printf("\nARP packet: %d\n", custom_frame->ethernet_type);
-//     }
+    if (ntohs(ethernet->ether_protocol_type) == ETHERTYPE_ARP) {
+        custom_frame->ethernet_type = ARP_PROTOCOL;
+        printf("\nARP packet: %d\n", custom_frame->ethernet_type);
+    }
 
-//     if (ntohs(ethernet->ether_protocol_type) == ETHERTYPE_IP) {
-//         custom_frame->ethernet_type = IPV4_PROTOCOL;
-//         printf("\nIPV4 packet: %d\n", custom_frame->ethernet_type);
+    if (ntohs(ethernet->ether_protocol_type) == ETHERTYPE_IP) {
+        custom_frame->ethernet_type = IPV4_PROTOCOL;
+        printf("\nIPV4 packet: %d\n", custom_frame->ethernet_type);
 
-//         ip = (Ipv4Datagram *)(packet + SIZE_ETHERNET);
-//         IP_Packet custom_packet;
-//         char src_ip[IPV4_ADDR_LEN_STR];
-//         char dst_ip[IPV4_ADDR_LEN_STR];
-//         generate_ip(ip->ip_source.s_addr, src_ip);
-//         generate_ip(ip->ip_destination.s_addr, dst_ip);
+        ip = (Ipv4Datagram *)(packet + SIZE_ETHERNET);
+        IP_Packet custom_packet;
+        char src_ip[IPV4_ADDR_LEN_STR];
+        char dst_ip[IPV4_ADDR_LEN_STR];
+        get_ipv4_address_string(ip->ip_source, src_ip);
+        get_ipv4_address_string(ip->ip_destination, dst_ip);
 
-//         strcpy(custom_packet.source_ip, src_ip);
-//         strcpy(custom_packet.destination_ip, dst_ip);
+        strcpy(custom_packet.source_ip, src_ip);
+        strcpy(custom_packet.destination_ip, dst_ip);
 
-//         size_ip = IP_HL(ip) * 4;
+        size_ip = ip->ip_header_length * 4;
 
-//         if (size_ip < 20) {
-//             printf("   * Invalid IP header length: %u bytes\n", size_ip);
-//             return ERROR;
-//         }
+        if (size_ip < 20) {
+            printf("   * Invalid IP header length: %u bytes\n", size_ip);
+            return ERROR;
+        }
 
-//         if ((int)ip->ip_protocol == UDP_PROTOCOL) {
-//             printf("\nUDP Handling\n");
-//         }
-//         if ((int)ip->ip_protocol == TCP_PROTOCOL) {
-//             printf("\nTCP Handling\n");
-//             tcp = (struct sniff_tcp *)(packet + SIZE_ETHERNET + size_ip);
-//             TCP_Segment custom_segment;
+        if ((int)ip->ip_protocol == UDP_PROTOCOL) {
+            printf("\nUDP Handling\n");
+        }
+        if ((int)ip->ip_protocol == TCP_PROTOCOL) {
+            printf("\nTCP Handling\n");
+            tcp = (struct sniff_tcp *)(packet + SIZE_ETHERNET + size_ip);
+            TCP_Segment custom_segment;
 
-//             size_tcp = TH_OFF(tcp) * 4;
+            size_tcp = TH_OFF(tcp) * 4;
 
-//             if (size_tcp < 20) {
-//                 printf("   * Invalid TCP header length: %u bytes\n",
-//                 size_tcp); return ERROR;
-//             }
-//             payload = (u_char *)(packet + SIZE_ETHERNET + size_ip +
-//             size_tcp);
+            if (size_tcp < 20) {
+                printf("   * Invalid TCP header length: %u bytes\n", size_tcp);
+                return ERROR;
+            }
+            payload = (u_char *)(packet + SIZE_ETHERNET + size_ip + size_tcp);
 
-//             int payload_length =
-//                 (header->caplen) - SIZE_ETHERNET - size_ip - size_tcp;
-//             custom_segment.source_port = ntohs(tcp->th_sport);
-//             custom_segment.destination_port = ntohs(tcp->th_dport);
-//             custom_segment.th_flag = (int)tcp->th_flags;
-//             custom_segment.sequence_number = tcp->th_seq;
-//             custom_segment.data = payload;
-//             custom_segment.data_length = payload_length;
+            int payload_length =
+                (header->caplen) - SIZE_ETHERNET - size_ip - size_tcp;
+            custom_segment.source_port = ntohs(tcp->th_sport);
+            custom_segment.destination_port = ntohs(tcp->th_dport);
+            custom_segment.th_flag = (int)tcp->th_flags;
+            custom_segment.sequence_number = tcp->th_seq;
+            custom_segment.data = payload;
+            custom_segment.data_length = payload_length;
 
-//             custom_packet.data = custom_segment;
-//             custom_frame->data = custom_packet;
-//         }
-//     }
+            custom_packet.data = custom_segment;
+            custom_frame->data = custom_packet;
+        }
+    }
 
-//     return 0;
-// }
+    return 0;
+}

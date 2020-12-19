@@ -20,7 +20,10 @@ int get_activated_handle(pcap_t **handle_ptr, char device[],
         return SNIFFER_ERROR_HANDLE_NOT_CREATED;
     }
 
-    // 2. activate the handle
+    // 2. set timeout (in ms)
+    pcap_set_timeout(*handle_ptr, 10);
+
+    // 3. activate the handle
     if (pcap_activate(*handle_ptr) != 0) {
         return SNIFFER_ERROR_HANDLE_NOT_ACTIVATED;
     }
@@ -32,11 +35,12 @@ int get_activated_handle(pcap_t **handle_ptr, char device[],
 void rule_matcher(Rule *rules_ds, ETHER_Frame *frame) {}
 void my_packet_handler(u_char *args, const struct pcap_pkthdr *header,
                        const u_char *packet) {
-    // ETHER_Frame custom_frame;
-    // populate_packet_ds(header, packet, &custom_frame);
+    ETHER_Frame custom_frame;
+    populate_packet_ds(header, packet, &custom_frame);
 
     EthernetFrame ethernet = populate_data_link(packet);
-    Ipv4Datagram ipv4 = populate_network_layer(ethernet.ethernet_body);
+    void *ethernet_body = (void *)packet + SIZE_ETHERNET_HEADER;
+    Ipv4Datagram ipv4 = populate_network_layer(ethernet_body);
 
     print_ethernet_header(ethernet);
     print_ipv4_datagram(ipv4);
@@ -46,7 +50,7 @@ void my_packet_handler(u_char *args, const struct pcap_pkthdr *header,
 int main(int argc, char *argv[]) {
     int error_code = 0;
     int total_packet_count = 1;
-    char *device = "eth0";
+    char *device = "eth1";
     char *rules_file_name = "/home/user/Downloads/project/ids.rules";
     char error_buffer[PCAP_ERRBUF_SIZE];
     pcap_t *handle;
