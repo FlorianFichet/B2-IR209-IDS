@@ -70,3 +70,4 @@ struct ids_rule {
 
 
 void read_rules(FILE *file, Rule **rules_ds, int *count);
+void free_rules(Rule *rules, int nb_rules);

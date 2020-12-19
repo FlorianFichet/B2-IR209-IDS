@@ -551,3 +551,39 @@ void read_rules(FILE *file, Rule **rules_ptr, int *count) {
     }
     free(tokens.tokens);
 }
+
+
+void free_rules(Rule *rules, int nb_rules) {
+    for (int i = 0; i < nb_rules; i++) {
+        Rule *rule = &rules[i];
+
+        // free ip/ports sources/destinations
+        free(rule->sources);
+        free(rule->destinations);
+        free(rule->source_ports);
+        free(rule->destination_ports);
+
+        // free options
+        for (int j = 0; j < rule->nb_options; j++) {
+            // free the option's settings
+            for (int k = 0; k < rule->options[j].nb_settings; k++) {
+                if (rule->options[j].settings[k] != NULL) {
+                    free(rule->options[j].settings[k]);
+                }
+            }
+            if (rule->options[j].settings != NULL) {
+                free(rule->options[j].settings);
+            }
+            if (rule->options[j].keyword != NULL) {
+                free(rule->options[j].keyword);
+            }
+        }
+        if (rule->options != NULL) {
+            free(rule->options);
+        }
+    }
+    // free the rules
+    if (rules != NULL) {
+        free(rules);
+    }
+}
