@@ -1,4 +1,4 @@
-# B2-IR209-IDS
+# Intrusion Dectection System
 
 Projet d'implémentation d'un IDS (Intrusion Dectection System) pour le cours de développement IR209 en bloc 2 au 1er quadrimestre, à l'Hénallux.
 
