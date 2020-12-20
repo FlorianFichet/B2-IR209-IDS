@@ -58,13 +58,27 @@ IdsArguments parse_arguments(int argc, char *argv[]) {
 }
 void print_help() {
     printf("Usage: ids [options]\n");
-    printf("Option          Long Option               Meaning\n");
-    printf("-h              --help                    Display this help and exit\n");
-    printf("-p              --print-headers           Print the headers of every protocol\n");
-    printf("                                            in the intercepted packets\n");
-    printf("-d <interface>  --device <interface>      Network interface to spy on\n");
-    printf("-r <rule_file>  --rules <rule_file>       File that contains the rules\n");
-    printf("-n <nb_packets> --nb-packets <nb_packets> Number of packets to analyse\n");
+    printf(
+        "Option          Long Option               "
+        "Meaning\n");
+    printf(
+        "-h              --help                    "
+        "Display this help and exit\n");
+    printf(
+        "-p              --print-headers           "
+        "Print the headers of every protocol\n");
+    printf(
+        "                                          "
+        "  in the intercepted packets\n");
+    printf(
+        "-d <interface>  --device <interface>      "
+        "Network interface to spy on\n");
+    printf(
+        "-r <rule_file>  --rules <rule_file>       "
+        "File that contains the rules\n");
+    printf(
+        "-n <nb_packets> --nb-packets <nb_packets> "
+        "Number of packets to analyse\n");
 }
 
 

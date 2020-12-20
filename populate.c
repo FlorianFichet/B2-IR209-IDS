@@ -57,74 +57,94 @@ ApplicationProtocol get_application_protocol_from_port(uint32_t port) {
 }
 
 
+void populate_ethernet_frame(Packet *packet) {
+    EthernetFrame *ethernet = packet->data_link_header;
+
+    // convert the endianness of the protocol type
+    ethernet->ether_protocol_type =
+        convert_endianess_16bits(ethernet->ether_protocol_type);
+
+    // add the network protocol and the header's address
+    packet->network_protocol =
+        get_network_protocol_from_code(ethernet->ether_protocol_type);
+    packet->network_header = packet->data_link_header + SIZE_ETHERNET_HEADER;
+}
+void populate_ipv4_datagram(Packet *packet) {
+    Ipv4Datagram *ipv4 = packet->network_header;
+
+    // convert endianness
+    ipv4->ip_total_length = convert_endianess_16bits(ipv4->ip_total_length);
+    ipv4->ip_identification = convert_endianess_16bits(ipv4->ip_identification);
+    ipv4->ip_checksum = convert_endianess_16bits(ipv4->ip_checksum);
+
+    ipv4->ip_source = convert_endianess_32bits(ipv4->ip_source);
+    ipv4->ip_destination = convert_endianess_32bits(ipv4->ip_destination);
+
+    // add the transport protocol and the header's address
+    packet->transport_protocol =
+        get_transport_protocol_from_code(ipv4->ip_protocol);
+    // *4 => words of 4 bytes (32 bits)
+    packet->transport_header =
+        packet->network_header + ipv4->ip_header_length * 4;
+}
+void populate_tcp_segment(Packet *packet) {
+    TcpSegment *tcp = packet->transport_header;
+
+    // convert endianness
+    tcp->th_source_port = convert_endianess_16bits(tcp->th_source_port);
+    tcp->th_destination_port =
+        convert_endianess_16bits(tcp->th_destination_port);
+    tcp->th_window = convert_endianess_16bits(tcp->th_window);
+    tcp->th_checksum = convert_endianess_16bits(tcp->th_checksum);
+    tcp->th_urgent_pointer = convert_endianess_16bits(tcp->th_urgent_pointer);
+
+    tcp->th_sequence_num = convert_endianess_32bits(tcp->th_sequence_num);
+    tcp->th_acknowledgement_num =
+        convert_endianess_32bits(tcp->th_acknowledgement_num);
+
+    // add the application protocol and the header's address
+
+    // NOTE: the server's port may not be the protocol's port,
+    //       that's why we have to test both
+    packet->application_protocol =
+        get_application_protocol_from_port(tcp->th_source_port);
+
+    if (packet->application_protocol == AP_None) {
+        packet->application_protocol =
+            get_application_protocol_from_port(tcp->th_destination_port);
+    }
+
+    // *4 => words of 4 bytes (32 bits)
+    packet->application_header =
+        packet->transport_header + TCP_OFFSET_VALUE(tcp) * 4;
+}
+
+
 void populate_data_link_layer(Packet *packet) {
-    if (packet->data_link_protocol == DLP_Ethernet) {
-        EthernetFrame *ethernet = packet->data_link_header;
-
-        // convert the endianness of the protocol type
-        ethernet->ether_protocol_type =
-            convert_endianess_16bits(ethernet->ether_protocol_type);
-
-        // add the network protocol and the header's address
-        packet->network_protocol =
-            get_network_protocol_from_code(ethernet->ether_protocol_type);
-        packet->network_header =
-            packet->data_link_header + SIZE_ETHERNET_HEADER;
+    switch (packet->data_link_protocol) {
+        case DLP_Ethernet:
+            populate_ethernet_frame(packet);
+            break;
+        default:
+            break;
     }
 }
 void populate_network_layer(Packet *packet) {
-    if (packet->network_protocol == NP_Ipv4) {
-        Ipv4Datagram *ipv4 = packet->network_header;
-
-        // convert endianness
-        ipv4->ip_total_length = convert_endianess_16bits(ipv4->ip_total_length);
-        ipv4->ip_identification =
-            convert_endianess_16bits(ipv4->ip_identification);
-        ipv4->ip_checksum = convert_endianess_16bits(ipv4->ip_checksum);
-
-        ipv4->ip_source = convert_endianess_32bits(ipv4->ip_source);
-        ipv4->ip_destination = convert_endianess_32bits(ipv4->ip_destination);
-
-        // add the transport protocol and the header's address
-        packet->transport_protocol =
-            get_transport_protocol_from_code(ipv4->ip_protocol);
-        // *4 => words of 4 bytes (32 bits)
-        packet->transport_header =
-            packet->network_header + ipv4->ip_header_length * 4;
+    switch (packet->network_protocol) {
+        case NP_Ipv4:
+            populate_ipv4_datagram(packet);
+            break;
+        default:
+            break;
     }
 }
 void populate_transport_layer(Packet *packet) {
-    if (packet->transport_protocol == TP_Tcp) {
-        TcpSegment *tcp = packet->transport_header;
-
-        // convert endianness
-        tcp->th_source_port = convert_endianess_16bits(tcp->th_source_port);
-        tcp->th_destination_port =
-            convert_endianess_16bits(tcp->th_destination_port);
-        tcp->th_window = convert_endianess_16bits(tcp->th_window);
-        tcp->th_checksum = convert_endianess_16bits(tcp->th_checksum);
-        tcp->th_urgent_pointer =
-            convert_endianess_16bits(tcp->th_urgent_pointer);
-
-        tcp->th_sequence_num = convert_endianess_32bits(tcp->th_sequence_num);
-        tcp->th_acknowledgement_num =
-            convert_endianess_32bits(tcp->th_acknowledgement_num);
-
-        // add the application protocol and the header's address
-
-        // NOTE: the server's port may not be the protocol's port,
-        //       that's why we have to test both
-        packet->application_protocol =
-            get_application_protocol_from_port(tcp->th_source_port);
-
-        if (packet->application_protocol == AP_None) {
-            packet->application_protocol =
-                get_application_protocol_from_port(tcp->th_destination_port);
-        }
-
-        // *4 => words of 4 bytes (32 bits)
-        packet->application_header =
-            packet->transport_header + TCP_OFFSET_VALUE(tcp) * 4;
+    switch (packet->transport_protocol) {
+        case TP_Tcp:
+            populate_tcp_segment(packet);
+            break;
+        default:
+            break;
     }
 }
 void populate_application_layer(Packet *packet) {}
