@@ -42,6 +42,23 @@ Ipv4Datagram populate_network_layer(void *ethernet_body) {
 
     return *ipv4;
 }
+TcpSegment populate_transport_layer(void *ip_body) {
+    TcpSegment *tcp = ip_body;
+
+    // convert endianness
+    tcp->th_source_port = convert_endianess_16bits(tcp->th_source_port);
+    tcp->th_destination_port =
+        convert_endianess_16bits(tcp->th_destination_port);
+    tcp->th_window = convert_endianess_16bits(tcp->th_window);
+    tcp->th_checksum = convert_endianess_16bits(tcp->th_checksum);
+    tcp->th_urgent_pointer = convert_endianess_16bits(tcp->th_urgent_pointer);
+
+    tcp->th_sequence_num = convert_endianess_32bits(tcp->th_sequence_num);
+    tcp->th_acknowledgement_num =
+        convert_endianess_32bits(tcp->th_acknowledgement_num);
+
+    return *tcp;
+}
 
 
 void get_ethernet_protocol_name(uint16_t protocol_type, char *protocol_name) {
@@ -134,6 +151,27 @@ void print_ipv4_datagram(Ipv4Datagram ipv4) {
            get_ipv4_address_string(ipv4.ip_source, ipv4_str));
     printf("    ip destination: %s\n",
            get_ipv4_address_string(ipv4.ip_destination, ipv4_str));
+}
+void print_tcp_segment(TcpSegment tcp) {
+    printf("tcp header:\n");
+
+    printf("    source port: %u\n", tcp.th_source_port);
+    printf("    destination port: %u\n", tcp.th_destination_port);
+    printf("    sequence number: %u\n", tcp.th_sequence_num);
+    printf("    acknowledgement number: %u\n", tcp.th_acknowledgement_num);
+    printf("    offset: %u\n", TCP_FLAG_NS_VALUE(tcp));
+    printf("    flag NS: %u\n", TCP_OFFSET_VALUE(tcp));
+    printf("    flag CWR: %u\n", TCP_FLAG_VALUE(tcp, TH_CWR));
+    printf("    flag ECE: %u\n", TCP_FLAG_VALUE(tcp, TH_ECE));
+    printf("    flag URG: %u\n", TCP_FLAG_VALUE(tcp, TH_URG));
+    printf("    flag ACK: %u\n", TCP_FLAG_VALUE(tcp, TH_ACK));
+    printf("    flag PUSH: %u\n", TCP_FLAG_VALUE(tcp, TH_PUSH));
+    printf("    flag RST: %u\n", TCP_FLAG_VALUE(tcp, TH_RST));
+    printf("    flag SYN: %u\n", TCP_FLAG_VALUE(tcp, TH_SYN));
+    printf("    flag FIN: %u\n", TCP_FLAG_VALUE(tcp, TH_FIN));
+    printf("    window: %u\n", tcp.th_window);
+    printf("    checksum: %u\n", tcp.th_checksum);
+    printf("    urgent pointer: %u\n", tcp.th_urgent_pointer);
 }
 void dump_memory(void *start, size_t size) {
     int i = 0;

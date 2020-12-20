@@ -30,7 +30,6 @@
 #define IP_OFFSET_VALUE(ip, mask) (((ip).ip_offset_and_flags) & (mask))
 #define IP_FLAG_VALUE(ip, mask) ((((ip).ip_offset_and_flags) & (mask)) ? 1 : 0)
 
-#define TH_OFF(th) (((th)->th_offx2 & 0xf0) >> 4)
 
 #define TH_FIN 0x01
 #define TH_SYN 0x02
@@ -40,11 +39,12 @@
 #define TH_URG 0x20
 #define TH_ECE 0x40
 #define TH_CWR 0x80
-#define TH_FLAGS (TH_FIN | TH_SYN | TH_RST | TH_ACK | TH_URG | TH_ECE | TH_CWR)
 
-#define TCP_OFFSET_VALUE(tcp, mask) \
-    (((tcp).th_offset_reserved_flag_ns) & (mask))
-#define TCP_FLAG_NS_VALUE(tcp) (((tcp).th_offset_reserved_flag_ns) & 1)
+// used for sniff_tcp
+#define TH_OFF(tcp) ((((tcp)->th_offx2) & 0xf0) >> 4)
+
+#define TCP_OFFSET_VALUE(tcp) ((((tcp).th_offset_flag_ns) & 0xf0) >> 4)
+#define TCP_FLAG_NS_VALUE(tcp) (((tcp).th_offset_flag_ns) & 1)
 #define TCP_FLAG_VALUE(tcp, mask) ((((tcp).th_flags) & (mask)) ? 1 : 0)
 
 
@@ -79,7 +79,7 @@ struct tcp_segment {
     u_short th_destination_port;
     u_int th_sequence_num;
     u_int th_acknowledgement_num;
-    u_char th_offset_reserved_flag_ns;
+    u_char th_offset_flag_ns;
     u_char th_flags;
     u_short th_window;
     u_short th_checksum;
@@ -165,6 +165,8 @@ void print_payload(int payload_length, unsigned char *payload);
 
 EthernetFrame populate_data_link(const u_char *packet_body);
 Ipv4Datagram populate_network_layer(void *ethernet_body);
+TcpSegment populate_transport_layer(void *ip_body);
 void print_ethernet_header(EthernetFrame ethernet);
 void print_ipv4_datagram(Ipv4Datagram ipv4);
+void print_tcp_segment(TcpSegment tcp);
 void dump_memory(void *start, size_t size);

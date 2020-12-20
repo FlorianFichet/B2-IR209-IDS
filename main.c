@@ -41,9 +41,13 @@ void my_packet_handler(u_char *args, const struct pcap_pkthdr *header,
     EthernetFrame ethernet = populate_data_link(packet);
     void *ethernet_body = (void *)packet + SIZE_ETHERNET_HEADER;
     Ipv4Datagram ipv4 = populate_network_layer(ethernet_body);
+    // *4 => words of 4 bytes (32 bits)
+    void *ip_body = ethernet_body + ipv4.ip_header_length * 4;
+    TcpSegment tcp = populate_transport_layer(ip_body);
 
     print_ethernet_header(ethernet);
     print_ipv4_datagram(ipv4);
+    print_tcp_segment(tcp);
 }
 
 
