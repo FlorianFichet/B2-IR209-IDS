@@ -32,15 +32,12 @@ int get_activated_handle(pcap_t **handle_ptr, char device[],
 }
 
 
-void rule_matcher(Rule *rules_ds, ETHER_Frame *frame) {}
-void my_packet_handler(u_char *args, const struct pcap_pkthdr *header,
-                       const u_char *packet) {
-    ETHER_Frame custom_frame;
-    populate_packet_ds(header, packet, &custom_frame);
-
-    // print_ethernet_header(ethernet);
-    // print_ipv4_datagram(ipv4);
-    // print_tcp_segment(tcp);
+void rule_matcher(Rule *rules_ds, int count, Packet *packet) {}
+void my_packet_handler(u_char *args, const struct pcap_pkthdr *packet_header,
+                       const u_char *packet_body) {
+    Packet packet;
+    populate_packet((void *)packet_body, &packet);
+    print_packet_headers(&packet);
 }
 
 

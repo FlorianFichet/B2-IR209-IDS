@@ -46,9 +46,9 @@ TransportProtocol get_transport_protocol_from_code(uint8_t protocol) {
 }
 ApplicationProtocol get_application_protocol_from_port(uint32_t port) {
     switch (port) {
-        case 80:
+        case HTTP_PORT:
             return AP_Http;
-        case 443:
+        case HTTPS_PORT:
             return AP_Https;
 
         default:
@@ -68,7 +68,8 @@ void populate_data_link_layer(Packet *packet) {
         // add the network protocol and the header's address
         packet->network_protocol =
             get_network_protocol_from_code(ethernet->ether_protocol_type);
-        packet->network_header = ethernet + SIZE_ETHERNET_HEADER;
+        packet->network_header =
+            packet->data_link_header + SIZE_ETHERNET_HEADER;
     }
 }
 void populate_network_layer(Packet *packet) {
@@ -88,7 +89,8 @@ void populate_network_layer(Packet *packet) {
         packet->transport_protocol =
             get_transport_protocol_from_code(ipv4->ip_protocol);
         // *4 => words of 4 bytes (32 bits)
-        packet->transport_header = ipv4 + ipv4->ip_header_length * 4;
+        packet->transport_header =
+            packet->network_header + ipv4->ip_header_length * 4;
     }
 }
 void populate_transport_layer(Packet *packet) {
@@ -121,9 +123,11 @@ void populate_transport_layer(Packet *packet) {
         }
 
         // *4 => words of 4 bytes (32 bits)
-        packet->application_header = tcp + TCP_OFFSET_VALUE(*tcp) * 4;
+        packet->application_header =
+            packet->transport_header + TCP_OFFSET_VALUE(tcp) * 4;
     }
 }
+void populate_application_layer(Packet *packet) {}
 void populate_packet(void *packet_body, Packet *packet) {
     // initialize
     packet->data_link_protocol = DLP_Ethernet;
@@ -200,59 +204,59 @@ char *get_ipv4_address_string(u_int ip, char *s) {
 }
 
 
-void print_ethernet_header(EthernetFrame ethernet) {
+void print_ethernet_header(EthernetFrame *ethernet) {
     char protocol_name[50] = "unknown protocol";
-    get_ethernet_protocol_name(ethernet.ether_protocol_type, protocol_name);
+    get_ethernet_protocol_name(ethernet->ether_protocol_type, protocol_name);
 
     printf("ethernet header:\n");
 
     // display the mac addresses
     printf("    mac destination: %02x:%02x:%02x:%02x:%02x:%02x\n",
-           ethernet.mac_destination[0], ethernet.mac_destination[1],
-           ethernet.mac_destination[2], ethernet.mac_destination[3],
-           ethernet.mac_destination[4], ethernet.mac_destination[5]);
+           ethernet->mac_destination[0], ethernet->mac_destination[1],
+           ethernet->mac_destination[2], ethernet->mac_destination[3],
+           ethernet->mac_destination[4], ethernet->mac_destination[5]);
     printf("    mac source: %02x:%02x:%02x:%02x:%02x:%02x\n",
-           ethernet.mac_source[0], ethernet.mac_source[1],
-           ethernet.mac_source[2], ethernet.mac_source[3],
-           ethernet.mac_source[4], ethernet.mac_source[5]);
+           ethernet->mac_source[0], ethernet->mac_source[1],
+           ethernet->mac_source[2], ethernet->mac_source[3],
+           ethernet->mac_source[4], ethernet->mac_source[5]);
 
     // display the network protocol
-    printf("    protocol type: %u", ethernet.ether_protocol_type);
+    printf("    protocol type: %u", ethernet->ether_protocol_type);
     printf(" -- %s\n", protocol_name);
 }
-void print_ipv4_datagram(Ipv4Datagram ipv4) {
+void print_ipv4_datagram_header(Ipv4Datagram *ipv4) {
     char ipv4_str[IPV4_ADDR_LEN_STR];
     char protocol_name[50] = "unknown protocol";
-    get_internet_protocol_name(ipv4.ip_protocol, protocol_name);
+    get_internet_protocol_name(ipv4->ip_protocol, protocol_name);
 
     printf("ipv4 header:\n");
 
-    printf("    ip version: %u\n", ipv4.ip_version);
-    printf("    header length: %u\n", ipv4.ip_header_length);
-    printf("    type of service: %u\n", ipv4.ip_type_of_service);
-    printf("    total length: %u\n", ipv4.ip_total_length);
-    printf("    identification: %u\n", ipv4.ip_identification);
+    printf("    ip version: %u\n", ipv4->ip_version);
+    printf("    header length: %u\n", ipv4->ip_header_length);
+    printf("    type of service: %u\n", ipv4->ip_type_of_service);
+    printf("    total length: %u\n", ipv4->ip_total_length);
+    printf("    identification: %u\n", ipv4->ip_identification);
     printf("    flag reserved: %u\n", IP_FLAG_VALUE(ipv4, IP_RF));
     printf("    flag don't fragment: %u\n", IP_FLAG_VALUE(ipv4, IP_DF));
     printf("    flag more fragments: %u\n", IP_FLAG_VALUE(ipv4, IP_MF));
     printf("    fragment offset: %u\n", IP_OFFSET_VALUE(ipv4, IP_OFFMASK));
-    printf("    time to live: %u\n", ipv4.ip_time_to_live);
-    printf("    protocol: %u -- %s\n", ipv4.ip_protocol, protocol_name);
-    printf("    header checksum: %u\n", ipv4.ip_checksum);
+    printf("    time to live: %u\n", ipv4->ip_time_to_live);
+    printf("    protocol: %u -- %s\n", ipv4->ip_protocol, protocol_name);
+    printf("    header checksum: %u\n", ipv4->ip_checksum);
     printf("    ip source: %s\n",
-           get_ipv4_address_string(ipv4.ip_source, ipv4_str));
+           get_ipv4_address_string(ipv4->ip_source, ipv4_str));
     printf("    ip destination: %s\n",
-           get_ipv4_address_string(ipv4.ip_destination, ipv4_str));
+           get_ipv4_address_string(ipv4->ip_destination, ipv4_str));
 }
-void print_tcp_segment(TcpSegment tcp) {
+void print_tcp_segment_header(TcpSegment *tcp) {
     printf("tcp header:\n");
 
-    printf("    source port: %u\n", tcp.th_source_port);
-    printf("    destination port: %u\n", tcp.th_destination_port);
-    printf("    sequence number: %u\n", tcp.th_sequence_num);
-    printf("    acknowledgement number: %u\n", tcp.th_acknowledgement_num);
-    printf("    offset: %u\n", TCP_FLAG_NS_VALUE(tcp));
-    printf("    flag NS: %u\n", TCP_OFFSET_VALUE(tcp));
+    printf("    source port: %u\n", tcp->th_source_port);
+    printf("    destination port: %u\n", tcp->th_destination_port);
+    printf("    sequence number: %u\n", tcp->th_sequence_num);
+    printf("    acknowledgement number: %u\n", tcp->th_acknowledgement_num);
+    printf("    offset: %u\n", TCP_OFFSET_VALUE(tcp));
+    printf("    flag NS: %u\n", TCP_FLAG_NS_VALUE(tcp));
     printf("    flag CWR: %u\n", TCP_FLAG_VALUE(tcp, TH_CWR));
     printf("    flag ECE: %u\n", TCP_FLAG_VALUE(tcp, TH_ECE));
     printf("    flag URG: %u\n", TCP_FLAG_VALUE(tcp, TH_URG));
@@ -261,12 +265,46 @@ void print_tcp_segment(TcpSegment tcp) {
     printf("    flag RST: %u\n", TCP_FLAG_VALUE(tcp, TH_RST));
     printf("    flag SYN: %u\n", TCP_FLAG_VALUE(tcp, TH_SYN));
     printf("    flag FIN: %u\n", TCP_FLAG_VALUE(tcp, TH_FIN));
-    printf("    window: %u\n", tcp.th_window);
-    printf("    checksum: %u\n", tcp.th_checksum);
-    printf("    urgent pointer: %u\n", tcp.th_urgent_pointer);
+    printf("    window: %u\n", tcp->th_window);
+    printf("    checksum: %u\n", tcp->th_checksum);
+    printf("    urgent pointer: %u\n", tcp->th_urgent_pointer);
 }
-void print_packet(Packet packet) {
-    //
+void print_packet_headers(Packet *packet) {
+    switch (packet->data_link_protocol) {
+        case DLP_Ethernet:
+            print_ethernet_header(packet->data_link_header);
+            break;
+        default:
+            break;
+    }
+    switch (packet->network_protocol) {
+        case NP_Ipv4:
+            print_ipv4_datagram_header(packet->network_header);
+            break;
+        case NP_Ipv6:
+            break;
+        case NP_Arp:
+            break;
+        default:
+            break;
+    }
+    switch (packet->transport_protocol) {
+        case TP_Tcp:
+            print_tcp_segment_header(packet->transport_header);
+            break;
+        case TP_Udp:
+            break;
+        default:
+            break;
+    }
+    switch (packet->application_protocol) {
+        case AP_Http:
+            break;
+        case AP_Https:
+            break;
+        default:
+            break;
+    }
 }
 
 
@@ -280,90 +318,4 @@ void dump_memory(void *start, size_t size) {
         i++;
     }
     printf("\n");
-}
-
-
-int populate_packet_ds(const struct pcap_pkthdr *header, const u_char *packet,
-                       ETHER_Frame *custom_frame) {
-    const EthernetFrame *ethernet; /* The ethernet header */
-    const Ipv4Datagram *ip;        /* The IP header */
-    const struct sniff_tcp *tcp;   /* The TCP header */
-    unsigned char *payload;        /* Packet payload */
-
-    u_int size_ip;
-    u_int size_tcp;
-
-    ethernet = (EthernetFrame *)(packet);
-    // ETHER_Frame custom_frame;
-    char src_mac_address[ETHER_ADDR_LEN_STR];
-    char dst_mac_address[ETHER_ADDR_LEN_STR];
-    custom_frame->frame_size = header->caplen;
-    // Convert unsigned char MAC to string MAC
-    for (int x = 0; x < 6; x++) {
-        snprintf(src_mac_address + (x * 2), ETHER_ADDR_LEN_STR, "%02x",
-                 ethernet->mac_source[x]);
-        snprintf(dst_mac_address + (x * 2), ETHER_ADDR_LEN_STR, "%02x",
-                 ethernet->mac_destination[x]);
-    }
-
-    strcpy(custom_frame->source_mac, src_mac_address);
-    strcpy(custom_frame->destination_mac, dst_mac_address);
-
-    if (ntohs(ethernet->ether_protocol_type) == ETHERTYPE_ARP) {
-        custom_frame->ethernet_type = ARP_PROTOCOL;
-        printf("\nARP packet: %d\n", custom_frame->ethernet_type);
-    }
-
-    if (ntohs(ethernet->ether_protocol_type) == ETHERTYPE_IP) {
-        custom_frame->ethernet_type = IPV4_PROTOCOL;
-        printf("\nIPV4 packet: %d\n", custom_frame->ethernet_type);
-
-        ip = (Ipv4Datagram *)(packet + SIZE_ETHERNET);
-        IP_Packet custom_packet;
-        char src_ip[IPV4_ADDR_LEN_STR];
-        char dst_ip[IPV4_ADDR_LEN_STR];
-        get_ipv4_address_string(ip->ip_source, src_ip);
-        get_ipv4_address_string(ip->ip_destination, dst_ip);
-
-        strcpy(custom_packet.source_ip, src_ip);
-        strcpy(custom_packet.destination_ip, dst_ip);
-
-        size_ip = ip->ip_header_length * 4;
-
-        if (size_ip < 20) {
-            printf("   * Invalid IP header length: %u bytes\n", size_ip);
-            return ERROR;
-        }
-
-        if ((int)ip->ip_protocol == UDP_PROTOCOL) {
-            printf("\nUDP Handling\n");
-        }
-        if ((int)ip->ip_protocol == TCP_PROTOCOL) {
-            printf("\nTCP Handling\n");
-            tcp = (struct sniff_tcp *)(packet + SIZE_ETHERNET + size_ip);
-            TCP_Segment custom_segment;
-
-            size_tcp = TH_OFF(tcp) * 4;
-
-            if (size_tcp < 20) {
-                printf("   * Invalid TCP header length: %u bytes\n", size_tcp);
-                return ERROR;
-            }
-            payload = (u_char *)(packet + SIZE_ETHERNET + size_ip + size_tcp);
-
-            int payload_length =
-                (header->caplen) - SIZE_ETHERNET - size_ip - size_tcp;
-            custom_segment.source_port = ntohs(tcp->th_sport);
-            custom_segment.destination_port = ntohs(tcp->th_dport);
-            custom_segment.th_flag = (int)tcp->th_flags;
-            custom_segment.sequence_number = tcp->th_seq;
-            custom_segment.data = payload;
-            custom_segment.data_length = payload_length;
-
-            custom_packet.data = custom_segment;
-            custom_frame->data = custom_packet;
-        }
-    }
-
-    return 0;
 }
