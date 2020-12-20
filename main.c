@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <stdlib.h>
 
 #include "populate.h"
@@ -7,6 +8,47 @@
 #define SNIFFER_ERROR_HANDLE_NOT_CREATED 1
 #define SNIFFER_ERROR_HANDLE_NOT_ACTIVATED 2
 #define FILE_NOT_OPENED_ERROR 3
+
+
+struct ids_arguments {
+    bool print_help;
+    bool print_packet_headers;
+    char *device;
+    char *rules_file_name;
+    int total_packet_count;
+} typedef IdsArguments;
+
+
+IdsArguments parse_arguments(int argc, char *argv[]) {
+    IdsArguments arguments = {
+        .print_help = false,
+        .print_packet_headers = false,
+        .device = "eth0",
+        .rules_file_name = "/etc/ids/ids.rules",
+        .total_packet_count = 1,
+    };
+
+    int i = 0;
+    while (i < argc) {
+        char *s = argv[i];
+
+        if (strcmp(s, "-h") == 0 || strcmp(s, "--help") == 0) {
+            arguments.print_help = true;
+        } else if (strcmp(s, "-p") == 0 || strcmp(s, "--print-headers") == 0) {
+            arguments.print_packet_headers = true;
+        } else if (strcmp(s, "-d") == 0 || strcmp(s, "--device") == 0) {
+            arguments.device = argv[++i];
+        } else if (strcmp(s, "-r") == 0 || strcmp(s, "--rules") == 0) {
+            arguments.rules_file_name = argv[++i];
+        } else if (strcmp(s, "-n") == 0 || strcmp(s, "--nb-packets") == 0) {
+            arguments.total_packet_count = atoi(argv[++i]);
+        }
+
+        i++;
+    }
+
+    return arguments;
+}
 
 
 // get the activated handle into 'handle', it is opened on 'device',
@@ -32,7 +74,6 @@ int get_activated_handle(pcap_t **handle_ptr, char device[],
 }
 
 
-void rule_matcher(Rule *rules_ds, int count, Packet *packet) {}
 void my_packet_handler(u_char *args, const struct pcap_pkthdr *packet_header,
                        const u_char *packet_body) {
     Packet packet;
@@ -41,24 +82,25 @@ void my_packet_handler(u_char *args, const struct pcap_pkthdr *packet_header,
 }
 
 
+void rule_matcher(Rule *rules_ds, int count, Packet *packet) {}
+
+
 int main(int argc, char *argv[]) {
     int error_code = 0;
-    int total_packet_count = 1;
-    char *device = "eth1";
-    char *rules_file_name = "/home/user/Downloads/project/ids.rules";
     char error_buffer[PCAP_ERRBUF_SIZE];
     pcap_t *handle;
 
     // 1. parse the command line arguments
+    IdsArguments arguments = parse_arguments(argc, argv);
 
     // 2. initialize pcap (the handle is used to identify the session)
-    error_code = get_activated_handle(&handle, device, error_buffer);
+    error_code = get_activated_handle(&handle, arguments.device, error_buffer);
     if (error_code != 0) {
         return error_code;
     }
 
     // 3. open the rules' file
-    FILE *file = fopen(rules_file_name, "r");
+    FILE *file = fopen(arguments.rules_file_name, "r");
     if (file == NULL) {
         return FILE_NOT_OPENED_ERROR;
     }
@@ -69,7 +111,7 @@ int main(int argc, char *argv[]) {
     read_rules(file, &rules, &nb_rules);
 
     // 5. handle the packets
-    pcap_loop(handle, total_packet_count, my_packet_handler, NULL);
+    pcap_loop(handle, arguments.total_packet_count, my_packet_handler, NULL);
 
     // 6. close pcap
     pcap_close(handle);
