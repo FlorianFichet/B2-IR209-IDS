@@ -270,6 +270,9 @@ void print_tcp_segment_header(TcpSegment *tcp) {
     printf("    urgent pointer: %u\n", tcp->th_urgent_pointer);
 }
 void print_packet_headers(Packet *packet) {
+    static int i = 0;
+    printf("Packet n°%d:\n", ++i);
+
     switch (packet->data_link_protocol) {
         case DLP_Ethernet:
             print_ethernet_header(packet->data_link_header);

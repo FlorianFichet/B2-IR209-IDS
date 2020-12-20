@@ -19,6 +19,13 @@ struct ids_arguments {
 } typedef IdsArguments;
 
 
+struct user_args_packet_handler {
+    bool print_packet_headers;
+    int nb_rules;
+    Rule *rules;
+} typedef UserArgsPacketHandler;
+
+
 IdsArguments parse_arguments(int argc, char *argv[]) {
     IdsArguments arguments = {
         .print_help = false,
@@ -84,15 +91,27 @@ int get_activated_handle(pcap_t **handle_ptr, char device[],
 }
 
 
-void my_packet_handler(u_char *args, const struct pcap_pkthdr *packet_header,
-                       const u_char *packet_body) {
-    Packet packet;
-    populate_packet((void *)packet_body, &packet);
-    print_packet_headers(&packet);
+void rules_matcher(Rule *rules_ds, int count, Packet *packet) {
+    //
 }
 
 
-void rule_matcher(Rule *rules_ds, int count, Packet *packet) {}
+void packet_handler(u_char *user_args, const struct pcap_pkthdr *packet_header,
+                    const u_char *packet_body) {
+    UserArgsPacketHandler *args = (UserArgsPacketHandler *)user_args;
+
+    // populate the packet
+    Packet packet;
+    populate_packet((void *)packet_body, &packet);
+
+    // print the packet
+    if (args->print_packet_headers) {
+        print_packet_headers(&packet);
+    }
+
+    // check if the packet matches any rule
+    rules_matcher(args->rules, args->nb_rules, &packet);
+}
 
 
 int main(int argc, char *argv[]) {
@@ -106,7 +125,7 @@ int main(int argc, char *argv[]) {
         print_help();
         return 0;
     }
-    
+
 
     // 2. initialize pcap (the handle is used to identify the session)
     error_code = get_activated_handle(&handle, arguments.device, error_buffer);
@@ -126,7 +145,7 @@ int main(int argc, char *argv[]) {
     read_rules(file, &rules, &nb_rules);
 
     // 5. handle the packets
-    pcap_loop(handle, arguments.total_packet_count, my_packet_handler, NULL);
+    pcap_loop(handle, arguments.total_packet_count, packet_handler, NULL);
 
     // 6. close pcap
     pcap_close(handle);
