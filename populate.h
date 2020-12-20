@@ -88,34 +88,41 @@ struct tcp_segment {
 
 
 enum data_link_protocol {
-    DLP_Ethernet,
     DLP_None,
+    DLP_Ethernet,
 } typedef DataLinkProtocol;
 enum network_protocol {
+    NP_None,
     NP_Ipv4,
     NP_Ipv6,
     NP_Arp,
-    NP_None,
 } typedef NetworkProtocol;
+enum transport_protocol {
+    TP_None,
+    TP_Tcp,
+    TP_Udp,
+} typedef TransportProtocol;
 enum application_protocol {
-    AP_Http,
     AP_None,
+    AP_Http,
+    AP_Https,
 } typedef ApplicationProtocol;
 
 struct packet {
     DataLinkProtocol data_link_protocol;
     NetworkProtocol network_protocol;
+    TransportProtocol transport_protocol;
     ApplicationProtocol application_protocol;
 
     void *data_link_header;
     void *network_header;
+    void *transport_header;
     void *application_header;
 } typedef Packet;
 
 
 /* TCP header */
 typedef u_int tcp_seq;
-
 struct sniff_tcp {
     u_short th_sport; /* source port */
     u_short th_dport; /* destination port */
@@ -127,13 +134,11 @@ struct sniff_tcp {
     u_short th_sum; /* checksum */
     u_short th_urp; /* urgent pointer */
 };
-
 struct custom_udp {
     int source_port;
     int destination_port;
     unsigned char *data;
 } typedef UDP_Packet;
-
 struct custom_tcp {
     int source_port;
     int destination_port;
@@ -143,13 +148,11 @@ struct custom_tcp {
     unsigned char *data;
     int data_length;
 } typedef TCP_Segment;
-
 struct custom_ip {
     char source_ip[IPV4_ADDR_LEN_STR];
     char destination_ip[IPV4_ADDR_LEN_STR];
     TCP_Segment data;
 } typedef IP_Packet;
-
 struct custom_ethernet {
     char source_mac[ETHER_ADDR_LEN_STR];
     char destination_mac[ETHER_ADDR_LEN_STR];
@@ -163,9 +166,13 @@ int populate_packet_ds(const struct pcap_pkthdr *header, const u_char *packet,
 void print_payload(int payload_length, unsigned char *payload);
 
 
-EthernetFrame populate_data_link(const u_char *packet_body);
-Ipv4Datagram populate_network_layer(void *ethernet_body);
-TcpSegment populate_transport_layer(void *ip_body);
+void populate_data_link_layer(Packet *packet);
+void populate_network_layer(Packet *packet);
+void populate_transport_layer(Packet *packet);
+void populate_application_layer(Packet *packet);
+void populate_packet(void *body, Packet *packet);
+
+
 void print_ethernet_header(EthernetFrame ethernet);
 void print_ipv4_datagram(Ipv4Datagram ipv4);
 void print_tcp_segment(TcpSegment tcp);

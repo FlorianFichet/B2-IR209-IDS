@@ -20,44 +20,134 @@ uint32_t convert_endianess_32bits(uint32_t nb) {
 }
 
 
-EthernetFrame populate_data_link(const u_char *packet_body) {
-    EthernetFrame *ethernet = (EthernetFrame *)packet_body;
+NetworkProtocol get_network_protocol_from_code(uint16_t protocol) {
+    switch (protocol) {
+        case ARP_PROTOCOL:
+            return NP_Arp;
+        case IPV4_PROTOCOL:
+            return NP_Ipv4;
+        case IPV6_PROTOCOL:
+            return NP_Ipv6;
 
-    // convert the endianness of the protocol type
-    ethernet->ether_protocol_type =
-        convert_endianess_16bits(ethernet->ether_protocol_type);
-
-    return *ethernet;
+        default:
+            return NP_None;
+    }
 }
-Ipv4Datagram populate_network_layer(void *ethernet_body) {
-    Ipv4Datagram *ipv4 = ethernet_body;
+TransportProtocol get_transport_protocol_from_code(uint8_t protocol) {
+    switch (protocol) {
+        case UDP_PROTOCOL:
+            return TP_Udp;
+        case TCP_PROTOCOL:
+            return TP_Tcp;
 
-    // convert endianness
-    ipv4->ip_total_length = convert_endianess_16bits(ipv4->ip_total_length);
-    ipv4->ip_identification = convert_endianess_16bits(ipv4->ip_identification);
-    ipv4->ip_checksum = convert_endianess_16bits(ipv4->ip_checksum);
-
-    ipv4->ip_source = convert_endianess_32bits(ipv4->ip_source);
-    ipv4->ip_destination = convert_endianess_32bits(ipv4->ip_destination);
-
-    return *ipv4;
+        default:
+            return TP_None;
+    }
 }
-TcpSegment populate_transport_layer(void *ip_body) {
-    TcpSegment *tcp = ip_body;
+ApplicationProtocol get_application_protocol_from_port(uint32_t port) {
+    switch (port) {
+        case 80:
+            return AP_Http;
+        case 443:
+            return AP_Https;
 
-    // convert endianness
-    tcp->th_source_port = convert_endianess_16bits(tcp->th_source_port);
-    tcp->th_destination_port =
-        convert_endianess_16bits(tcp->th_destination_port);
-    tcp->th_window = convert_endianess_16bits(tcp->th_window);
-    tcp->th_checksum = convert_endianess_16bits(tcp->th_checksum);
-    tcp->th_urgent_pointer = convert_endianess_16bits(tcp->th_urgent_pointer);
+        default:
+            return AP_None;
+    }
+}
 
-    tcp->th_sequence_num = convert_endianess_32bits(tcp->th_sequence_num);
-    tcp->th_acknowledgement_num =
-        convert_endianess_32bits(tcp->th_acknowledgement_num);
 
-    return *tcp;
+void populate_data_link_layer(Packet *packet) {
+    if (packet->data_link_protocol == DLP_Ethernet) {
+        EthernetFrame *ethernet = packet->data_link_header;
+
+        // convert the endianness of the protocol type
+        ethernet->ether_protocol_type =
+            convert_endianess_16bits(ethernet->ether_protocol_type);
+
+        // add the network protocol and the header's address
+        packet->network_protocol =
+            get_network_protocol_from_code(ethernet->ether_protocol_type);
+        packet->network_header = ethernet + SIZE_ETHERNET_HEADER;
+    }
+}
+void populate_network_layer(Packet *packet) {
+    if (packet->network_protocol == NP_Ipv4) {
+        Ipv4Datagram *ipv4 = packet->network_header;
+
+        // convert endianness
+        ipv4->ip_total_length = convert_endianess_16bits(ipv4->ip_total_length);
+        ipv4->ip_identification =
+            convert_endianess_16bits(ipv4->ip_identification);
+        ipv4->ip_checksum = convert_endianess_16bits(ipv4->ip_checksum);
+
+        ipv4->ip_source = convert_endianess_32bits(ipv4->ip_source);
+        ipv4->ip_destination = convert_endianess_32bits(ipv4->ip_destination);
+
+        // add the transport protocol and the header's address
+        packet->transport_protocol =
+            get_transport_protocol_from_code(ipv4->ip_protocol);
+        // *4 => words of 4 bytes (32 bits)
+        packet->transport_header = ipv4 + ipv4->ip_header_length * 4;
+    }
+}
+void populate_transport_layer(Packet *packet) {
+    if (packet->transport_protocol == TP_Tcp) {
+        TcpSegment *tcp = packet->transport_header;
+
+        // convert endianness
+        tcp->th_source_port = convert_endianess_16bits(tcp->th_source_port);
+        tcp->th_destination_port =
+            convert_endianess_16bits(tcp->th_destination_port);
+        tcp->th_window = convert_endianess_16bits(tcp->th_window);
+        tcp->th_checksum = convert_endianess_16bits(tcp->th_checksum);
+        tcp->th_urgent_pointer =
+            convert_endianess_16bits(tcp->th_urgent_pointer);
+
+        tcp->th_sequence_num = convert_endianess_32bits(tcp->th_sequence_num);
+        tcp->th_acknowledgement_num =
+            convert_endianess_32bits(tcp->th_acknowledgement_num);
+
+        // add the application protocol and the header's address
+
+        // NOTE: the server's port may not be the protocol's port,
+        //       that's why we have to test both
+        packet->application_protocol =
+            get_application_protocol_from_port(tcp->th_source_port);
+
+        if (packet->application_protocol == AP_None) {
+            packet->application_protocol =
+                get_application_protocol_from_port(tcp->th_destination_port);
+        }
+
+        // *4 => words of 4 bytes (32 bits)
+        packet->application_header = tcp + TCP_OFFSET_VALUE(*tcp) * 4;
+    }
+}
+void populate_packet(void *packet_body, Packet *packet) {
+    // initialize
+    packet->data_link_protocol = DLP_Ethernet;
+    packet->network_protocol = NP_None;
+    packet->transport_protocol = TP_None;
+    packet->application_protocol = AP_None;
+
+    packet->data_link_header = packet_body;
+    packet->network_header = NULL;
+    packet->transport_header = NULL;
+    packet->application_header = NULL;
+
+    // populate
+    populate_data_link_layer(packet);
+    if (packet->network_protocol != NP_None &&
+        packet->network_protocol != NP_Arp) {
+        populate_network_layer(packet);
+    }
+    if (packet->transport_protocol != TP_None) {
+        populate_transport_layer(packet);
+    }
+    if (packet->application_protocol != AP_None) {
+        populate_application_layer(packet);
+    }
 }
 
 
@@ -108,6 +198,8 @@ char *get_ipv4_address_string(u_int ip, char *s) {
              bytes[0]);
     return s;
 }
+
+
 void print_ethernet_header(EthernetFrame ethernet) {
     char protocol_name[50] = "unknown protocol";
     get_ethernet_protocol_name(ethernet.ether_protocol_type, protocol_name);
@@ -173,6 +265,11 @@ void print_tcp_segment(TcpSegment tcp) {
     printf("    checksum: %u\n", tcp.th_checksum);
     printf("    urgent pointer: %u\n", tcp.th_urgent_pointer);
 }
+void print_packet(Packet packet) {
+    //
+}
+
+
 void dump_memory(void *start, size_t size) {
     int i = 0;
     while (i < size) {
