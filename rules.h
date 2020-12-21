@@ -11,10 +11,12 @@ enum rule_action {
     Rejectboth,
 } typedef RuleAction;
 enum rule_protocol {
+    Ethernet,
+    Ipv4,
+    Ipv6,
     Tcp,
     Udp,
     Icmp,
-    Ip,
     Http,
     Tls,  // (this includes ssl)
     Ssh,
@@ -25,12 +27,13 @@ enum rule_protocol {
     Ntp,
     Dhcp,
     Dns,
+    No_Protocol,
 } typedef RuleProtocol;
-struct rule_ip {
+struct rule_ipv4 {
     bool negation;
     int ip;        // -1 => any
     char netmask;  // CIDR notation (ip/xx)
-} typedef RuleIp;
+} typedef RuleIpv4;
 struct rule_port {
     bool negation;
     // 0 to -1 => any
@@ -53,9 +56,9 @@ struct ids_rule {
     RuleAction action;
     RuleProtocol protocol;
 
-    RuleIp *sources;  // there could be multiple sources
+    RuleIpv4 *sources;  // there could be multiple sources
     int nb_sources;
-    RuleIp *destinations;
+    RuleIpv4 *destinations;
     int nb_destinations;
 
     RulePort *source_ports;  // there could be multiple ports

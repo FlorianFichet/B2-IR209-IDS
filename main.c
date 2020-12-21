@@ -105,8 +105,81 @@ int get_activated_handle(pcap_t **handle_ptr, char device[],
 }
 
 
-void rules_matcher(Rule *rules_ds, int count, Packet *packet) {
+void get_rule_protocols_from_packet(RuleProtocol *protocols, Packet *packet) {
+    switch (packet->data_link_protocol) {
+        case DLP_Ethernet:
+            protocols[0] = Ethernet;
+            break;
+        default:
+            protocols[0] = No_Protocol;
+            break;
+    }
+    switch (packet->network_protocol) {
+        case NP_Ipv4:
+            protocols[1] = Ipv4;
+            break;
+        case NP_Ipv6:
+            protocols[1] = Ipv6;
+            break;
+        default:
+            protocols[1] = No_Protocol;
+            break;
+    }
+    switch (packet->transport_protocol) {
+        case TP_Tcp:
+            protocols[2] = Tcp;
+            break;
+        case TP_Udp:
+            protocols[2] = Udp;
+            break;
+        default:
+            protocols[2] = No_Protocol;
+            break;
+    }
+    switch (packet->application_protocol) {
+        case AP_Http:
+            protocols[3] = Http;
+            break;
+        default:
+            protocols[3] = No_Protocol;
+            break;
+    }
+}
+void get_rule_ipv4_from_packet(RuleIpv4 *ips, Packet *packet) {
     //
+}
+
+
+void rules_matcher(Rule *rules, int count, Packet *packet) {
+    // transform the packet's data to "rule's data"
+    RuleProtocol protocols[4];
+    RuleIpv4 ips[2];
+    get_rule_protocols_from_packet(protocols, packet);
+    if (packet->network_protocol == NP_Ipv4) {
+        get_rule_ipv4_from_packet(ips, packet);
+    }
+
+    // for every rule
+    for (size_t num_rule = 0; num_rule < count; num_rule++) {
+        Rule *rule = rules + num_rule;
+
+        // 1. check if the protocols match
+        bool protocols_match = false;
+        for (size_t i = 0; i < 4; i++) {
+            if (rule->protocol == protocols[i]) {
+                protocols_match = true;
+                break;
+            }
+        }
+        if (!protocols_match) {
+            continue;
+        }
+
+        // 2. check if the ip match (taking the direction in account)
+        // 3. check if the ports match (taking the direction in account)
+        // 4. check if the options match
+        // 5. write to syslog
+    }
 }
 
 

@@ -11,7 +11,7 @@ struct rules_tokens {
 } typedef Tokens;
 
 
-void get_rules_ip(RuleIp **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr);
+void get_rules_ip(RuleIpv4 **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr);
 void get_rules_port(RulePort **port_ptr, int *nb_ports, Tokens *tokens,
                     int *i_ptr);
 
@@ -26,9 +26,9 @@ void increase_nb_rules(Rule **rules_ptr, int *nb_rules) {
     (*nb_rules)++;
     (*rules_ptr) = realloc((*rules_ptr), (*nb_rules) * sizeof(Rule));
 }
-void increase_nb_ip(RuleIp **ip_ptr, int *nb_ip) {
+void increase_nb_ip(RuleIpv4 **ip_ptr, int *nb_ip) {
     (*nb_ip)++;
-    (*ip_ptr) = realloc((*ip_ptr), (*nb_ip) * sizeof(RuleIp));
+    (*ip_ptr) = realloc((*ip_ptr), (*nb_ip) * sizeof(RuleIpv4));
 }
 void increase_nb_ports(RulePort **port_ptr, int *nb_ports) {
     (*nb_ports)++;
@@ -262,7 +262,7 @@ void get_option_settings(RuleOption *option, Tokens *tokens, int *i_ptr) {
     (*i_ptr)++;
 }
 
-void inverse_negation_ip(RuleIp **ip_ptr, int *nb_ip, Tokens *tokens,
+void inverse_negation_ip(RuleIpv4 **ip_ptr, int *nb_ip, Tokens *tokens,
                          int *i_ptr) {
     // 1. increment *i_ptr, make a copy of *nb_ip (=> start_ip)
     (*i_ptr)++;
@@ -274,7 +274,7 @@ void inverse_negation_ip(RuleIp **ip_ptr, int *nb_ip, Tokens *tokens,
     // 3. loop through the ips (start_ip -> *nb_ip) and inverse their negation
     for (int j = start_ip; j < *nb_ip; j++) {
         // inverse the ip's negation
-        RuleIp *ip = (*ip_ptr) + j * sizeof(RuleIp);
+        RuleIpv4 *ip = (*ip_ptr) + j * sizeof(RuleIpv4);
         ip->negation = !ip->negation;
     }
 }
@@ -295,11 +295,11 @@ void inverse_negation_port(RulePort **port_ptr, int *nb_ports, Tokens *tokens,
         port->negation = !port->negation;
     }
 }
-void get_ip_any(RuleIp **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr) {
+void get_ip_any(RuleIpv4 **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr) {
     // 1. increment *i_ptr, add a new ip
     (*i_ptr)++;
     increase_nb_ip(ip_ptr, nb_ip);
-    RuleIp *ip = (*ip_ptr) + ((*nb_ip) - 1) * sizeof(RuleIp);
+    RuleIpv4 *ip = (*ip_ptr) + ((*nb_ip) - 1) * sizeof(RuleIpv4);
 
     // set the ip's fields
     ip->negation = false;
@@ -321,7 +321,7 @@ void get_port_any(RulePort **port_ptr, int *nb_ports, Tokens *tokens,
 
     // NOTE: 0 to -1 => any
 }
-void get_ip_list(RuleIp **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr) {
+void get_ip_list(RuleIpv4 **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr) {
     // loop until we get the closing ']'
     while (strcmp(tokens->tokens[*i_ptr], "]") != 0) {
         // 1. increase *i_ptr, to pass the '[' or the ','
@@ -346,11 +346,11 @@ void get_port_list(RulePort **port_ptr, int *nb_ports, Tokens *tokens,
     // for the closing ']'
     (*i_ptr)++;
 }
-void get_ip_address(RuleIp **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr) {
+void get_ip_address(RuleIpv4 **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr) {
     // 1. increment *i_ptr, add an ip to the list
     (*i_ptr)++;
     increase_nb_ip(ip_ptr, nb_ip);
-    RuleIp *new_ip = &(*ip_ptr)[(*nb_ip) - 1];
+    RuleIpv4 *new_ip = &(*ip_ptr)[(*nb_ip) - 1];
 
     // 2. get the ip and the netmask
     new_ip->negation = false;
@@ -370,7 +370,7 @@ void get_port_address(RulePort **port_ptr, int *nb_ports, Tokens *tokens,
 }
 
 
-void get_rules_ip(RuleIp **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr) {
+void get_rules_ip(RuleIpv4 **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr) {
     if (strcmp(tokens->tokens[*i_ptr], "!") == 0) {
         inverse_negation_ip(ip_ptr, nb_ip, tokens, i_ptr);
     } else if (strcmp(tokens->tokens[*i_ptr], "any") == 0) {
@@ -414,14 +414,18 @@ void get_rule_action(Rule *rule, Tokens *tokens, int *i_ptr) {
     (*i_ptr)++;
 }
 void get_rule_protocol(Rule *rule, Tokens *tokens, int *i_ptr) {
-    if (strcmp(tokens->tokens[*i_ptr], "tcp") == 0) {
+    if (strcmp(tokens->tokens[*i_ptr], "ethernet") == 0) {
+        rule->protocol = Ethernet;
+    } else if (strcmp(tokens->tokens[*i_ptr], "ipv4") == 0) {
+        rule->protocol = Ipv4;
+    } else if (strcmp(tokens->tokens[*i_ptr], "ipv6") == 0) {
+        rule->protocol = Ipv6;
+    } else if (strcmp(tokens->tokens[*i_ptr], "tcp") == 0) {
         rule->protocol = Tcp;
     } else if (strcmp(tokens->tokens[*i_ptr], "udp") == 0) {
         rule->protocol = Udp;
     } else if (strcmp(tokens->tokens[*i_ptr], "icmp") == 0) {
         rule->protocol = Icmp;
-    } else if (strcmp(tokens->tokens[*i_ptr], "ip") == 0) {
-        rule->protocol = Ip;
     } else if (strcmp(tokens->tokens[*i_ptr], "http") == 0) {
         rule->protocol = Http;
     } else if (strcmp(tokens->tokens[*i_ptr], "tls") == 0) {
