@@ -1,30 +1,36 @@
 #include <netinet/if_ether.h>
 #include <netinet/in.h>
 #include <pcap.h>
+#include <stdint.h>
 #include <string.h>
 
-/* Ethernet addresses are 6 bytes */
+
+#define SIZE_MAC_ADDRESS 6
+#define SIZE_IPV4_ADDRESS 4
+#define SIZE_ETHERNET_HEADER 14
+
+
 #define SIZE_ETHERNET 14
 #define ETHER_ADDR_LEN_STR 18
-#define IP_ADDR_LEN_STR 16
+#define IPV4_ADDR_LEN_STR 16
 
-#define ARP 2054
-#define IPV4 2048
-#define IPV6 34525
+#define ARP_PROTOCOL 2054
+#define IPV4_PROTOCOL 2048
+#define IPV6_PROTOCOL 34525
 #define UDP_PROTOCOL 17
 #define TCP_PROTOCOL 6
 
-#define ERROR -1
+#define HTTP_PORT 80
+#define HTTPS_PORT 443
 
-#define IP_RF 0x8000               /* reserved fragment flag */
-#define IP_DF 0x4000               /* don't fragment flag */
-#define IP_MF 0x2000               /* more fragments flag */
-#define IP_OFFMASK 0x1fff          /* mask for fragmenting bits */
+#define IP_RF 0x8000      /* reserved fragment flag */
+#define IP_DF 0x4000      /* don't fragment flag */
+#define IP_MF 0x2000      /* more fragments flag */
+#define IP_OFFMASK 0x1fff /* mask for fragmenting bits */
 
-#define IP_HL(ip) (((ip)->ip_vhl) & 0x0f)
-#define IP_V(ip) (((ip)->ip_vhl) >> 4)
+#define IP_OFFSET_VALUE(ip, mask) (((ip)->ip_offset_and_flags) & (mask))
+#define IP_FLAG_VALUE(ip, mask) ((((ip)->ip_offset_and_flags) & (mask)) ? 1 : 0)
 
-#define TH_OFF(th) (((th)->th_offx2 & 0xf0) >> 4)
 
 #define TH_FIN 0x01
 #define TH_SYN 0x02
@@ -34,77 +40,96 @@
 #define TH_URG 0x20
 #define TH_ECE 0x40
 #define TH_CWR 0x80
-#define TH_FLAGS (TH_FIN | TH_SYN | TH_RST | TH_ACK | TH_URG | TH_ECE | TH_CWR)
 
-/* Ethernet header */
-struct sniff_ethernet {
-    u_char ether_dhost[ETHER_ADDR_LEN]; /* Destination host address */
-    u_char ether_shost[ETHER_ADDR_LEN]; /* Source host address */
-    u_short ether_type;                 /* IP? ARP? RARP? etc */
-};
+#define TCP_OFFSET_VALUE(tcp) ((((tcp)->th_offset_flag_ns) & 0xf0) >> 4)
+#define TCP_FLAG_NS_VALUE(tcp) (((tcp)->th_offset_flag_ns) & 0x01)
+#define TCP_FLAG_VALUE(tcp, mask) ((((tcp)->th_flags) & (mask)) ? 1 : 0)
 
-/* IP header */
-struct sniff_ip {
-    u_char ip_vhl;                 /* version << 4 | header length >> 2 */
-    u_char ip_tos;                 /* type of service */
-    u_short ip_len;                /* total length */
-    u_short ip_id;                 /* identification */
-    u_short ip_off;                /* fragment offset field */
-    u_char ip_ttl;                 /* time to live */
-    u_char ip_p;                   /* protocol */
-    u_short ip_sum;                /* checksum */
-    struct in_addr ip_src, ip_dst; /* source and dest address */
-};
 
-/* TCP header */
-typedef u_int tcp_seq;
-
-struct sniff_tcp {
-    u_short th_sport; /* source port */
-    u_short th_dport; /* destination port */
-    tcp_seq th_seq;   /* sequence number */
-    tcp_seq th_ack;   /* acknowledgement number */
-    u_char th_offx2;  /* data offset, rsvd */
+struct ethernet_frame {
+    u_char mac_destination[ETHER_ADDR_LEN];
+    u_char mac_source[ETHER_ADDR_LEN];
+    u_short ether_protocol_type;
+} typedef EthernetFrame;
+///////////////////////////////////////////////////////////////////////////////
+// NOTE: the order of the fields might seem weird, it's because of how the   //
+//       compiler places the fields                                          //
+//         0       1       2       3       4                                 //
+//         0123456701234567012345670123456701234567                          //
+// ip:     |ver|len|...                                                      //
+// struct: |len|ver|...                                                      //
+///////////////////////////////////////////////////////////////////////////////
+struct ipv4_datagram {
+    u_char ip_header_length : 4;
+    u_char ip_version : 4;
+    u_char ip_type_of_service;
+    u_short ip_total_length;
+    u_short ip_identification;
+    u_short ip_offset_and_flags;
+    u_char ip_time_to_live;
+    u_char ip_protocol;
+    u_short ip_checksum;
+    u_int ip_source;
+    u_int ip_destination;
+} typedef Ipv4Datagram;
+struct tcp_segment {
+    u_short th_source_port;
+    u_short th_destination_port;
+    u_int th_sequence_num;
+    u_int th_acknowledgement_num;
+    u_char th_offset_flag_ns;
     u_char th_flags;
-    u_short th_win; /* window */
-    u_short th_sum; /* checksum */
-    u_short th_urp; /* urgent pointer */
-};
+    u_short th_window;
+    u_short th_checksum;
+    u_short th_urgent_pointer;
+} typedef TcpSegment;
 
-struct custom_udp {
-    int source_port;
-    int destination_port;
-    unsigned char *data;
 
-} typedef UDP_Packet;
+enum data_link_protocol {
+    DLP_None,
+    DLP_Ethernet,
+} typedef DataLinkProtocol;
+enum network_protocol {
+    NP_None,
+    NP_Ipv4,
+    NP_Ipv6,
+    NP_Arp,
+} typedef NetworkProtocol;
+enum transport_protocol {
+    TP_None,
+    TP_Tcp,
+    TP_Udp,
+} typedef TransportProtocol;
+enum application_protocol {
+    AP_None,
+    AP_Http,
+    AP_Https,
+} typedef ApplicationProtocol;
 
-struct custom_tcp {
-    int source_port;
-    int destination_port;
-    int sequence_number;
-    int ack_number;
-    int th_flag;
-    unsigned char *data;
-    int data_length;
+struct packet {
+    DataLinkProtocol data_link_protocol;
+    NetworkProtocol network_protocol;
+    TransportProtocol transport_protocol;
+    ApplicationProtocol application_protocol;
 
-} typedef TCP_Segment;
+    void *data_link_header;
+    void *network_header;
+    void *transport_header;
+    void *application_header;
+} typedef Packet;
 
-struct custom_ip {
-    char source_ip[IP_ADDR_LEN_STR];
-    char destination_ip[IP_ADDR_LEN_STR];
-    TCP_Segment data;
 
-} typedef IP_Packet;
+void populate_data_link_layer(Packet *packet);
+void populate_network_layer(Packet *packet);
+void populate_transport_layer(Packet *packet);
+void populate_application_layer(Packet *packet);
+void populate_packet(void *body, Packet *packet);
 
-struct custom_ethernet {
-    char source_mac[ETHER_ADDR_LEN_STR];
-    char destination_mac[ETHER_ADDR_LEN_STR];
-    int ethernet_type;
-    int frame_size;
-    IP_Packet data;
 
-} typedef ETHER_Frame;
+void print_ethernet_header(EthernetFrame *ethernet);
+void print_ipv4_datagram_header(Ipv4Datagram *ipv4);
+void print_tcp_segment_header(TcpSegment *tcp);
+void print_packet_headers(Packet *packet);
 
-int populate_packet_ds(const struct pcap_pkthdr *header, const u_char *packet,
-                       ETHER_Frame *frame);
-void print_payload(int payload_length, unsigned char *payload);
+
+void dump_memory(void *start, size_t size);
