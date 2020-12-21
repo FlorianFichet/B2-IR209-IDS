@@ -26,6 +26,9 @@ struct user_args_packet_handler {
 } typedef UserArgsPacketHandler;
 
 
+int write_syslog(char *message);
+
+
 IdsArguments parse_arguments(int argc, char *argv[]) {
     IdsArguments arguments = {
         .print_help = false,
@@ -306,7 +309,7 @@ void rules_matcher(Rule *rules, int count, Packet *packet) {
 
         // 4. check if the options match
         for (size_t i = 0; i < rule->nb_options; i++) {
-            RuleOption *option = rule->options;
+            RuleOption *option = &(rule->options[i]);
             if (strcmp(option->keyword, "content") == 0 &&
                 check_option_content(option->settings[0], packet)) {
                 continue;
