@@ -1,6 +1,7 @@
 #include <netinet/if_ether.h>
 #include <netinet/in.h>
 #include <pcap.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -26,9 +27,9 @@
 #define IP_RF 0x8000      /* reserved fragment flag */
 #define IP_DF 0x4000      /* don't fragment flag */
 #define IP_MF 0x2000      /* more fragments flag */
-#define IP_OFFMASK 0x1fff /* mask for fragmenting bits */
+#define IP_OFFSET_MASK 0x1fff /* mask for fragmenting bits */
 
-#define IP_OFFSET_VALUE(ip, mask) (((ip)->ip_offset_and_flags) & (mask))
+#define IP_OFFSET_VALUE(ip) (((ip)->ip_offset_and_flags) & (IP_OFFSET_MASK))
 #define IP_FLAG_VALUE(ip, mask) ((((ip)->ip_offset_and_flags) & (mask)) ? 1 : 0)
 
 
@@ -44,6 +45,19 @@
 #define TCP_OFFSET_VALUE(tcp) ((((tcp)->th_offset_flag_ns) & 0xf0) >> 4)
 #define TCP_FLAG_NS_VALUE(tcp) (((tcp)->th_offset_flag_ns) & 0x01)
 #define TCP_FLAG_VALUE(tcp, mask) ((((tcp)->th_flags) & (mask)) ? 1 : 0)
+
+
+enum http_request_method {
+    Http_Connect,
+    Http_Delete,
+    Http_Get,
+    Http_Head,
+    Http_Options,
+    Http_Patch,
+    Http_Post,
+    Http_Put,
+    Http_Trace,
+} typedef HttpRequestMethod;
 
 
 struct ethernet_frame {
@@ -83,6 +97,14 @@ struct tcp_segment {
     u_short th_checksum;
     u_short th_urgent_pointer;
 } typedef TcpSegment;
+struct http_data {
+    bool is_response;
+    HttpRequestMethod request_method;  // only for requests
+    size_t status_code;                // only for responses
+    size_t content_length;
+    void *header;
+    void *data;
+} typedef HttpData;
 
 
 enum data_link_protocol {
@@ -116,6 +138,10 @@ struct packet {
     void *network_header;
     void *transport_header;
     void *application_header;
+    // NOTE: the application layer's header is the only one that need to be
+    // allocated, it's because it doesn't have a fixed size.
+
+    uint32_t packet_length;
 } typedef Packet;
 
 
@@ -133,3 +159,4 @@ void print_packet_headers(Packet *packet);
 
 
 void dump_memory(void *start, size_t size);
+void dump_memory_hex(void *start, size_t size);

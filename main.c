@@ -116,6 +116,7 @@ void packet_handler(u_char *user_args, const struct pcap_pkthdr *packet_header,
 
     // populate the packet
     Packet packet;
+    packet.packet_length = packet_header->caplen;
     populate_packet((void *)packet_body, &packet);
 
     // print the packet
@@ -125,6 +126,11 @@ void packet_handler(u_char *user_args, const struct pcap_pkthdr *packet_header,
 
     // check if the packet matches any rule
     rules_matcher(args->rules, args->nb_rules, &packet);
+
+    // free the packet's application header
+    if (packet.application_header != NULL) {
+        free(packet.application_header);
+    }
 }
 
 
@@ -133,38 +139,41 @@ int main(int argc, char *argv[]) {
     char error_buffer[PCAP_ERRBUF_SIZE];
     pcap_t *handle;
 
-    // 1. parse the command line arguments
+    // parse the command line arguments
     IdsArguments arguments = parse_arguments(argc, argv);
     if (arguments.print_help) {
         print_help();
         return 0;
     }
 
-
-    // 2. initialize pcap (the handle is used to identify the session)
+    // initialize pcap (the handle is used to identify the session)
     error_code = get_activated_handle(&handle, arguments.device, error_buffer);
     if (error_code != 0) {
         return error_code;
     }
 
-    // 3. open the rules' file
+    // open the rules' file
     FILE *file = fopen(arguments.rules_file_name, "r");
     if (file == NULL) {
         return FILE_NOT_OPENED_ERROR;
     }
 
-    // 4. read the rules' file
+    // read the rules' file
     Rule *rules = NULL;
     int nb_rules = 0;
     read_rules(file, &rules, &nb_rules);
 
-    // 5. handle the packets
-    pcap_loop(handle, arguments.total_packet_count, packet_handler, NULL);
+    // handle the packets
+    UserArgsPacketHandler user_args = {
+        .print_packet_headers = arguments.print_packet_headers,
+        .nb_rules = nb_rules,
+        .rules = rules,
+    };
+    pcap_loop(handle, arguments.total_packet_count, packet_handler,
+              (u_char *)&user_args);
 
-    // 6. close pcap
+    // end the program properly
     pcap_close(handle);
-
-    // 7. free the rules
     free_rules(rules, nb_rules);
 
     return 0;
