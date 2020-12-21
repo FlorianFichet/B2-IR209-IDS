@@ -105,8 +105,139 @@ int get_activated_handle(pcap_t **handle_ptr, char device[],
 }
 
 
-void rules_matcher(Rule *rules_ds, int count, Packet *packet) {
-    //
+void get_rule_protocols_from_packet(RuleProtocol *protocols, Packet *packet) {
+    switch (packet->data_link_protocol) {
+        case DLP_Ethernet:
+            protocols[0] = Ethernet;
+            break;
+        default:
+            protocols[0] = No_Protocol;
+            break;
+    }
+    switch (packet->network_protocol) {
+        case NP_Ipv4:
+            protocols[1] = Ipv4;
+            break;
+        case NP_Ipv6:
+            protocols[1] = Ipv6;
+            break;
+        default:
+            protocols[1] = No_Protocol;
+            break;
+    }
+    switch (packet->transport_protocol) {
+        case TP_Tcp:
+            protocols[2] = Tcp;
+            break;
+        case TP_Udp:
+            protocols[2] = Udp;
+            break;
+        default:
+            protocols[2] = No_Protocol;
+            break;
+    }
+    switch (packet->application_protocol) {
+        case AP_Http:
+            protocols[3] = Http;
+            break;
+        default:
+            protocols[3] = No_Protocol;
+            break;
+    }
+}
+void get_ipv4_from_packet(uint32_t *ips, Packet *packet) {
+    Ipv4Datagram *ipv4_header = (Ipv4Datagram *)packet->network_header;
+    ips[0] = ipv4_header->ip_source;
+    ips[1] = ipv4_header->ip_destination;
+}
+void get_ports_from_packet(uint16_t *ports, Packet *packet) {
+    switch (packet->transport_protocol) {
+        case Tcp:
+            TcpSegment *tcp_header = (TcpSegment *)packet->transport_header;
+            ports[0] = tcp_header->th_source_port;
+            ports[1] = tcp_header->th_destination_port;
+            break;
+        default:
+            break;
+    }
+}
+bool check_protocol_match(Rule *rule, RuleProtocol *protocols) {
+    bool protocols_match = false;
+    for (size_t i = 0; i < 4; i++) {
+        if (rule->protocol == protocols[i]) {
+            protocols_match = true;
+            break;
+        }
+    }
+}
+bool check_ipv4_match(RuleIpv4 *ips, int nb_rules_ip, uint32_t ip) {
+    bool ips_match = false;
+    for (size_t i = 0; i < nb_rules_ip; i++) {
+        // NOTE: no break because we have to do all the list in case there
+        // is a negation
+        if (ips[i].ip == -1) {  // -1 => any
+            ips_match = ips[i].negation;
+        } else {
+            // e.g. 255.255.255.255/24
+            //  a. inverse_netmask = 8
+            //  b. host_ip = 255.255.255.255 % (1 << 8)
+            //             = 255.255.255.255 % 256
+            //             =   0.  0.  0.255
+            //  c. network_ip = 255.255.255.0
+            uint32_t inverse_netmask = 32 - ips[i].netmask;
+            uint32_t host_ip = ip % (1 << inverse_netmask);
+            uint32_t network_ip = ip - host_ip;
+            if (network_ip == ips[i].ip) {
+                ips_match = ips[i].negation;
+            }
+        }
+    }
+}
+
+
+void rules_matcher(Rule *rules, int count, Packet *packet) {
+    // transform the packet's data to "rule's data"
+    RuleProtocol protocols[4] = {
+        No_Protocol,
+        No_Protocol,
+        No_Protocol,
+        No_Protocol,
+    };
+    uint32_t ips[2] = {0, 0};
+    uint16_t ports[2] = {0, 0};
+    get_rule_protocols_from_packet(protocols, packet);
+    get_rule_ports_from_packet(ports, packet);
+    if (packet->network_protocol == NP_Ipv4) {
+        get_rule_ipv4_from_packet(ips, packet);
+    }
+    if (packet->transport_protocol != TP_None) {
+        get_rule_ports_from_packet(ports, packet);
+    }
+
+    // for every rule
+    for (size_t num_rule = 0; num_rule < count; num_rule++) {
+        Rule *rule = rules + num_rule;
+
+        // 1. check if the protocols match
+        if (!check_protocol_match(rule, protocols)) {
+            continue;
+        }
+
+        // 2 check if the ips match (only ipv4 for the moment)
+        // 2.1. check if the source ips match
+        if (!check_ipv4_match(rule->sources, rule->nb_sources, ips[0])) {
+            continue;
+        }
+        // 2.2. check if the destination ips match
+        if (!check_ipv4_match(rule->destinations, rule->nb_destinations,
+                              ips[1])) {
+            continue;
+        }
+
+        // 3. check if the ports match (taking the direction in account)
+        // 4. check if the options match
+        // 5. write to syslog
+    }
 }
 
 
@@ -116,6 +247,7 @@ void packet_handler(u_char *user_args, const struct pcap_pkthdr *packet_header,
 
     // populate the packet
     Packet packet;
+    packet.packet_length = packet_header->caplen;
     populate_packet((void *)packet_body, &packet);
 
     // print the packet
@@ -125,6 +257,11 @@ void packet_handler(u_char *user_args, const struct pcap_pkthdr *packet_header,
 
     // check if the packet matches any rule
     rules_matcher(args->rules, args->nb_rules, &packet);
+
+    // free the packet's application header
+    if (packet.application_header != NULL) {
+        free(packet.application_header);
+    }
 }
 
 
@@ -133,38 +270,41 @@ int main(int argc, char *argv[]) {
     char error_buffer[PCAP_ERRBUF_SIZE];
     pcap_t *handle;
 
-    // 1. parse the command line arguments
+    // parse the command line arguments
     IdsArguments arguments = parse_arguments(argc, argv);
     if (arguments.print_help) {
         print_help();
         return 0;
     }
 
-
-    // 2. initialize pcap (the handle is used to identify the session)
+    // initialize pcap (the handle is used to identify the session)
     error_code = get_activated_handle(&handle, arguments.device, error_buffer);
     if (error_code != 0) {
         return error_code;
     }
 
-    // 3. open the rules' file
+    // open the rules' file
     FILE *file = fopen(arguments.rules_file_name, "r");
     if (file == NULL) {
         return FILE_NOT_OPENED_ERROR;
     }
 
-    // 4. read the rules' file
+    // read the rules' file
     Rule *rules = NULL;
     int nb_rules = 0;
     read_rules(file, &rules, &nb_rules);
 
-    // 5. handle the packets
-    pcap_loop(handle, arguments.total_packet_count, packet_handler, NULL);
+    // handle the packets
+    UserArgsPacketHandler user_args = {
+        .print_packet_headers = arguments.print_packet_headers,
+        .nb_rules = nb_rules,
+        .rules = rules,
+    };
+    pcap_loop(handle, arguments.total_packet_count, packet_handler,
+              (u_char *)&user_args);
 
-    // 6. close pcap
+    // end the program properly
     pcap_close(handle);
-
-    // 7. free the rules
     free_rules(rules, nb_rules);
 
     return 0;

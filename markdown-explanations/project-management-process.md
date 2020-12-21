@@ -14,6 +14,7 @@
     - [**4. Pull request**](#4-pull-request)
     - [**5. Review & Merge**](#5-review--merge)
     - [**6. Close & Pull**](#6-close--pull)
+  - [4. Example (3) : update a fork](#4-example-3--update-a-fork)
 
 ## 1. Project's organization
 
@@ -121,3 +122,14 @@ Change your local code base:
 
     1. This is the source control extension
     2. Click on *discard all changes*
+
+## 4. Example (3) : update a fork
+
+Update your github branch (note: this branch is not from our project):
+
+![update github fork](./images/update-branch-01.png)
+![update github fork](./images/update-branch-03.png)
+
+Update your local branch:
+
+![update local fork](./images/update-branch-02.png)

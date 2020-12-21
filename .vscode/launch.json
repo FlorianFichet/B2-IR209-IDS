@@ -13,7 +13,7 @@
                 "-p",
                 "-d", "eth1",
                 "-r", "/home/user/Downloads/project/ids.rules",
-                "-n", "1",
+                "-n", "10",
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

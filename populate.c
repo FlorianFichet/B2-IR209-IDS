@@ -20,6 +20,34 @@ uint32_t convert_endianess_32bits(uint32_t nb) {
 }
 
 
+size_t get_network_protocol_header_length(Packet *packet) {
+    size_t size_network = 0;
+
+    switch (packet->network_protocol) {
+        case NP_Ipv4:
+            size_network =
+                ((Ipv4Datagram *)packet->network_header)->ip_header_length * 4;
+            break;
+        default:
+            break;
+    }
+
+    return size_network;
+}
+size_t get_transport_protocol_header_length(Packet *packet) {
+    size_t size_transport = 0;
+
+    switch (packet->transport_protocol) {
+        case TP_Tcp:
+            size_transport =
+                TCP_OFFSET_VALUE((TcpSegment *)packet->transport_header) * 4;
+            break;
+        default:
+            break;
+    }
+
+    return size_transport;
+}
 NetworkProtocol get_network_protocol_from_code(uint16_t protocol) {
     switch (protocol) {
         case ARP_PROTOCOL:
@@ -28,7 +56,6 @@ NetworkProtocol get_network_protocol_from_code(uint16_t protocol) {
             return NP_Ipv4;
         case IPV6_PROTOCOL:
             return NP_Ipv6;
-
         default:
             return NP_None;
     }
@@ -39,7 +66,6 @@ TransportProtocol get_transport_protocol_from_code(uint8_t protocol) {
             return TP_Udp;
         case TCP_PROTOCOL:
             return TP_Tcp;
-
         default:
             return TP_None;
     }
@@ -50,10 +76,132 @@ ApplicationProtocol get_application_protocol_from_port(uint32_t port) {
             return AP_Http;
         case HTTPS_PORT:
             return AP_Https;
-
         default:
             return AP_None;
     }
+}
+void get_http_status_code(HttpData *http_data) {
+    // HTTP response 1st line: <http_version> <status_code> <status_phrase>
+
+    char *header_str = (char *)http_data->header;
+    char nb_white_spaces = 0;
+
+    int i = 0;
+    while (nb_white_spaces < 2) {
+        char c = header_str[i];
+        if (c == ' ') {
+            nb_white_spaces++;
+        }
+
+        i++;
+    }
+
+    // we need to convert a 3 digits number's type from str to int, using the
+    // ASCII table (atoi woudn't work as there isn't a '\0' after the number)
+    http_data->status_code = ((int)header_str[i] - 48) * 100 +
+                             ((int)header_str[i + 1] - 48) * 10 +
+                             ((int)header_str[i + 2] - 48);
+}
+void get_http_request_method_or_status_code(HttpData *http_data) {
+    // HTTP request 1st line:  <method> <uri> <http_version>
+    // HTTP response 1st line: <http_version> <status_code> <status_phrase>
+
+    char *header_str = (char *)http_data->header;
+    http_data->is_response = false;
+
+    switch (header_str[0]) {
+        case 'C':
+            http_data->request_method = Http_Connect;
+            break;
+        case 'D':
+            http_data->request_method = Http_Delete;
+            break;
+        case 'G':
+            http_data->request_method = Http_Get;
+            break;
+        case 'H':
+            // 'HTTP' or 'HEAD'
+            switch (header_str[1]) {
+                case 'E':
+                    http_data->request_method = Http_Head;
+                    break;
+                case 'T':
+                    http_data->is_response = true;
+                    get_http_status_code(http_data);
+                    break;
+                default:
+                    break;
+            }
+            break;
+        case 'O':
+            http_data->request_method = Http_Options;
+            break;
+        case 'P':
+            // 'PATCH' or 'POST' or 'PUT'
+            switch (header_str[1]) {
+                case 'A':
+                    http_data->request_method = Http_Patch;
+                    break;
+                case 'O':
+                    http_data->request_method = Http_Post;
+                    break;
+                case 'U':
+                    http_data->request_method = Http_Put;
+                    break;
+                default:
+                    break;
+            }
+            break;
+        case 'T':
+            http_data->request_method = Http_Trace;
+            break;
+        default:
+            break;
+    }
+}
+void find_http_header_end(HttpData *http_data) {
+    // the http header ends with "\r\n\r\n"
+
+    char *s = (char *)http_data->header;
+    int i = 0;
+    while (s[i] != '\r' || s[i + 1] != '\n' || s[i + 2] != '\r' ||
+           s[i + 3] != '\n') {
+        i++;
+    }
+
+    // +4 => "\r\n\r\n"
+    http_data->data = http_data->header + i + 4;
+}
+void get_http_content_length(HttpData *http_data) {
+    char *s = (char *)http_data->header;
+
+    size_t i = 0;
+    while (true) {
+        // if the line starts with "Content-Length", break,
+        // else go to the next line
+        if (s[i] == 'C' && s[i + 1] == 'o' && s[i + 9] == 'e') {
+            // length("Content-Length: ") = 16
+            i += 16;
+            break;
+        }
+
+        // go to the next line
+        while (s[i] != '\n') {
+            i++;
+        }
+        i++;
+    }
+
+    // we need to convert a n digits number's type from str to int, using the
+    // ASCII table (atoi woudn't work as there isn't a '\0' after the number)
+    size_t content_length = 0;
+    while (s[i] != '\r') {
+        content_length *= 10;
+        content_length += s[i] - 48;
+
+        i++;
+    }
+    http_data->content_length = content_length;
 }
 
 
@@ -102,21 +250,49 @@ void populate_tcp_segment(Packet *packet) {
     tcp->th_acknowledgement_num =
         convert_endianess_32bits(tcp->th_acknowledgement_num);
 
-    // add the application protocol and the header's address
+    // check if there is an application layer by comparing the length of the
+    // headers with the total size of the packet, if there is an application
+    // layer add the protocol and the header's address
+    size_t size_ethernet = SIZE_ETHERNET_HEADER;
+    size_t size_network = get_network_protocol_header_length(packet);
+    size_t size_transport = get_transport_protocol_header_length(packet);
 
-    // NOTE: the server's port may not be the protocol's port,
-    //       that's why we have to test both
-    packet->application_protocol =
-        get_application_protocol_from_port(tcp->th_source_port);
-
-    if (packet->application_protocol == AP_None) {
+    // NOTE: it's also possible to use the: ipv4->total_length to check whether
+    // there is an application layer but it's not "protocol independant"
+    if (packet->packet_length > size_ethernet + size_network + size_transport) {
+        // NOTE: one of the ports may not be the protocol's port,
+        //       that's why we have to test both
         packet->application_protocol =
-            get_application_protocol_from_port(tcp->th_destination_port);
-    }
+            get_application_protocol_from_port(tcp->th_source_port);
+        if (packet->application_protocol == AP_None) {
+            packet->application_protocol =
+                get_application_protocol_from_port(tcp->th_destination_port);
+        }
 
-    // *4 => words of 4 bytes (32 bits)
-    packet->application_header =
-        packet->transport_header + TCP_OFFSET_VALUE(tcp) * 4;
+        // *4 => words of 4 bytes (32 bits)
+        packet->application_header =
+            packet->transport_header + TCP_OFFSET_VALUE(tcp) * 4;
+    }
+}
+void populate_http_data(Packet *packet) {
+    // 1. copy the location of the http header before malloc a HttpData struct
+    void *http_header = packet->application_header;
+
+    // 2. malloc a http struct
+    packet->application_header = malloc(sizeof(HttpData));
+    HttpData *http_data = (HttpData *)packet->application_header;
+    http_data->header = http_header;
+
+    // 3. check if the header starts with "HTTP" or a request method
+    get_http_request_method_or_status_code(http_data);
+
+    // 4. get the content's length and find the end of the header
+    find_http_header_end(http_data);
+    if (http_data->is_response) {
+        get_http_content_length(http_data);
+    } else {
+        http_data->content_length = 0;
+    }
 }
 
 
@@ -147,7 +323,15 @@ void populate_transport_layer(Packet *packet) {
             break;
     }
 }
-void populate_application_layer(Packet *packet) {}
+void populate_application_layer(Packet *packet) {
+    switch (packet->application_protocol) {
+        case AP_Http:
+            populate_http_data(packet);
+            break;
+        default:
+            break;
+    }
+}
 void populate_packet(void *packet_body, Packet *packet) {
     // initialize
     packet->data_link_protocol = DLP_Ethernet;
@@ -186,7 +370,6 @@ void get_ethernet_protocol_name(uint16_t protocol_type, char *protocol_name) {
         case ARP_PROTOCOL:
             strcpy(protocol_name, "Address Resolution Protocol (ARP)");
             break;
-
         default:
             break;
     }
@@ -205,7 +388,6 @@ void get_internet_protocol_name(u_char protocol_type, char *protocol_name) {
         case 17:
             strcpy(protocol_name, "User Datagram (UDP)");
             break;
-
         default:
             break;
     }
@@ -259,7 +441,7 @@ void print_ipv4_datagram_header(Ipv4Datagram *ipv4) {
     printf("    flag reserved: %u\n", IP_FLAG_VALUE(ipv4, IP_RF));
     printf("    flag don't fragment: %u\n", IP_FLAG_VALUE(ipv4, IP_DF));
     printf("    flag more fragments: %u\n", IP_FLAG_VALUE(ipv4, IP_MF));
-    printf("    fragment offset: %u\n", IP_OFFSET_VALUE(ipv4, IP_OFFMASK));
+    printf("    fragment offset: %u\n", IP_OFFSET_VALUE(ipv4));
     printf("    time to live: %u\n", ipv4->ip_time_to_live);
     printf("    protocol: %u -- %s\n", ipv4->ip_protocol, protocol_name);
     printf("    header checksum: %u\n", ipv4->ip_checksum);
@@ -289,9 +471,29 @@ void print_tcp_segment_header(TcpSegment *tcp) {
     printf("    checksum: %u\n", tcp->th_checksum);
     printf("    urgent pointer: %u\n", tcp->th_urgent_pointer);
 }
+void print_http_data_header(HttpData *http) {
+    printf("http header:\n    ");
+
+    // print the header character per character, after every '\n', write 4
+    // spaces after "\r\n\r\n", the http header is over
+    size_t i = 0;
+    while (http->header + i < http->data) {
+        char c = *(char *)(http->header + i);
+        printf("%c", c);
+
+        if (c == '\n') {
+            printf("    ");
+        }
+
+        i++;
+    }
+
+    printf("\n");
+}
+
 void print_packet_headers(Packet *packet) {
     static int i = 0;
-    printf("Packet n°%d:\n", ++i);
+    printf("\nPacket n°%d:\n", ++i);
 
     switch (packet->data_link_protocol) {
         case DLP_Ethernet:
@@ -322,6 +524,7 @@ void print_packet_headers(Packet *packet) {
     }
     switch (packet->application_protocol) {
         case AP_Http:
+            print_http_data_header(packet->application_header);
             break;
         case AP_Https:
             break;
@@ -331,7 +534,7 @@ void print_packet_headers(Packet *packet) {
 }
 
 
-void dump_memory(void *start, size_t size) {
+void dump_memory_hex(void *start, size_t size) {
     int i = 0;
     while (i < size) {
         if (i % 16 == 15) {
