@@ -127,9 +127,9 @@ Change your local code base:
 
 Update your github branch (note: this branch is not from our project):
 
-![update github fork](./images/update-branch-01.PNG)
-![update github fork](./images/update-branch-03.PNG)
+![update github fork](./images/update-branch-01.png)
+![update github fork](./images/update-branch-03.png)
 
 Update your local branch:
 
-![update local fork](./images/update-branch-02.PNG)
+![update local fork](./images/update-branch-02.png)
