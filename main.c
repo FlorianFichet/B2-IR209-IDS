@@ -145,18 +145,73 @@ void get_rule_protocols_from_packet(RuleProtocol *protocols, Packet *packet) {
             break;
     }
 }
-void get_rule_ipv4_from_packet(RuleIpv4 *ips, Packet *packet) {
-    //
+void get_ipv4_from_packet(uint32_t *ips, Packet *packet) {
+    Ipv4Datagram *ipv4_header = (Ipv4Datagram *)packet->network_header;
+    ips[0] = ipv4_header->ip_source;
+    ips[1] = ipv4_header->ip_destination;
+}
+void get_ports_from_packet(uint16_t *ports, Packet *packet) {
+    switch (packet->transport_protocol) {
+        case Tcp:
+            TcpSegment *tcp_header = (TcpSegment *)packet->transport_header;
+            ports[0] = tcp_header->th_source_port;
+            ports[1] = tcp_header->th_destination_port;
+            break;
+        default:
+            break;
+    }
+}
+bool check_protocol_match(Rule *rule, RuleProtocol *protocols) {
+    bool protocols_match = false;
+    for (size_t i = 0; i < 4; i++) {
+        if (rule->protocol == protocols[i]) {
+            protocols_match = true;
+            break;
+        }
+    }
+}
+bool check_ipv4_match(RuleIpv4 *ips, int nb_rules_ip, uint32_t ip) {
+    bool ips_match = false;
+    for (size_t i = 0; i < nb_rules_ip; i++) {
+        // NOTE: no break because we have to do all the list in case there
+        // is a negation
+        if (ips[i].ip == -1) {  // -1 => any
+            ips_match = ips[i].negation;
+        } else {
+            // e.g. 255.255.255.255/24
+            //  a. inverse_netmask = 8
+            //  b. host_ip = 255.255.255.255 % (1 << 8)
+            //             = 255.255.255.255 % 256
+            //             =   0.  0.  0.255
+            //  c. network_ip = 255.255.255.0
+            uint32_t inverse_netmask = 32 - ips[i].netmask;
+            uint32_t host_ip = ip % (1 << inverse_netmask);
+            uint32_t network_ip = ip - host_ip;
+            if (network_ip == ips[i].ip) {
+                ips_match = ips[i].negation;
+            }
+        }
+    }
 }
 
 
 void rules_matcher(Rule *rules, int count, Packet *packet) {
     // transform the packet's data to "rule's data"
-    RuleProtocol protocols[4];
-    RuleIpv4 ips[2];
+    RuleProtocol protocols[4] = {
+        No_Protocol,
+        No_Protocol,
+        No_Protocol,
+        No_Protocol,
+    };
+    uint32_t ips[2] = {0, 0};
+    uint16_t ports[2] = {0, 0};
     get_rule_protocols_from_packet(protocols, packet);
+    get_rule_ports_from_packet(ports, packet);
     if (packet->network_protocol == NP_Ipv4) {
         get_rule_ipv4_from_packet(ips, packet);
+    }
+    if (packet->transport_protocol != TP_None) {
+        get_rule_ports_from_packet(ports, packet);
     }
 
     // for every rule
@@ -164,18 +219,21 @@ void rules_matcher(Rule *rules, int count, Packet *packet) {
         Rule *rule = rules + num_rule;
 
         // 1. check if the protocols match
-        bool protocols_match = false;
-        for (size_t i = 0; i < 4; i++) {
-            if (rule->protocol == protocols[i]) {
-                protocols_match = true;
-                break;
-            }
-        }
-        if (!protocols_match) {
+        if (!check_protocol_match(rule, protocols)) {
             continue;
         }
 
-        // 2. check if the ip match (taking the direction in account)
+        // 2 check if the ips match (only ipv4 for the moment)
+        // 2.1. check if the source ips match
+        if (!check_ipv4_match(rule->sources, rule->nb_sources, ips[0])) {
+            continue;
+        }
+        // 2.2. check if the destination ips match
+        if (!check_ipv4_match(rule->destinations, rule->nb_destinations,
+                              ips[1])) {
+            continue;
+        }
+
         // 3. check if the ports match (taking the direction in account)
         // 4. check if the options match
         // 5. write to syslog
