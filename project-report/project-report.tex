@@ -131,8 +131,6 @@
 
 
 
-
-
 Pour le cours de Développement, nous avons dû implémenter un IDS (Intrusion Detection System) qui analyse le trafic qui passe par une interface réseau de la machine. Il permet de détecter des activités suspectes en fonction d'un certain nombre de règles données au préalable. En cas d'anomalie, le programme peut alerter l'utilisateur en la signalant dans les logs du système.
 
 Nous nous sommes organisés en utilisant la plateforme github, comme recommandé, et voici le lien vers notre répertoire: 
@@ -207,7 +205,7 @@ Sur le schéma de la figure \ref{fig:networkgraph}, on voit le network graph. Ce
 
 
 
-\subsection{Configuration du debugger et utilisation de valgrind}
+\subsection{Configuration du debugger}
 
 
 
@@ -250,6 +248,34 @@ Remarquez qu'il faut lancer le programme avec des privilèges plus élevé que l
 
 
 
+\subsection{Utilisation de valgrind}
+
+
+
+Valgrind est un outil de programmation qui sert principalement à découvrir des fuites de mémoire. Par exemple, si j'alloue un bloc de mémoire dans le tas (heap) et que je ne le libère pas, valgrind va me rappeler à l'ordre et même me dire à quelle ligne le bloc mémoire à été alloué (si le programme a été compilé avec un debug flag).
+
+Lancement du programme avec valgrind (rappel: ids doit être lancé avec des privilèges):
+{\small \begin{verbatim}
+    valgrind --leak-check=full \
+        --show-leak-kinds=all \
+        --track-origins=yes \
+        --verbose \
+        ./ids
+\end{verbatim}}
+
+L'objectif est donc d'obtenir un résultat comme celui à la figure \ref{fig:valgrind}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{../markdown-explanations/images/valgrind-01.PNG}
+    \caption{Résultat de valgrind}
+    \label{fig:valgrind}
+\end{figure}
+
+
+
+
+
 \subsection{Configuration du formatage automatique}
 
 
@@ -285,8 +311,6 @@ L'extension C/C++ de visual studio code nous permet de faire du formatage automa
 
 
 
-
-
 %%
 
 
@@ -302,8 +326,6 @@ L'extension C/C++ de visual studio code nous permet de faire du formatage automa
 
 
 
-
-
 %% /!\ /!\ /!\ EXPLIQUER QUE LES CHOIX D'IMPLÉMENTATION SONT DANS LA SECTION SUIVANTE
 
 
@@ -316,8 +338,6 @@ L'extension C/C++ de visual studio code nous permet de faire du formatage automa
 
 
 \section{Choix d'implémentation spécifiques et problèmes rencontrés}
-
-
 
 
 
@@ -350,9 +370,22 @@ int main(void)
 
 
 
+\section{Améliorations possibles}
+
+
+
+%%
+
+
+
+
+
+
+
+
+
+
 \section{Conclusion}
-
-
 
 
 
