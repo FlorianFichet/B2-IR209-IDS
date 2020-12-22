@@ -41,7 +41,8 @@ void increase_nb_options(RuleOption **options_ptr, int *nb_options) {
 }
 void increase_nb_option_settings(char ***settings_ptr, int *nb_settings) {
     (*nb_settings)++;
-    (*settings_ptr) = realloc((*settings_ptr), (*nb_settings) * sizeof(char **));
+    (*settings_ptr) =
+        realloc((*settings_ptr), (*nb_settings) * sizeof(char **));
 }
 
 
@@ -124,21 +125,16 @@ void tokenize_rules(FILE *file, Tokens *tokens) {
                     // the '\0'
                     add_token(buffer, buffer_index + 1, tokens);
                 }
-                // add the quote '"' to the buffer
-                buffer[0] = c;
-                buffer_index = 1;
+                buffer_index = 0;
 
-                // add every character to the buffer until there is a second
-                // quote
+                // add every character to the buffer until we see a second quote
                 c = fgetc(file);
                 while (c != '"') {
                     buffer[buffer_index] = c;
                     buffer_index++;
                     c = fgetc(file);
                 }
-                // add the second quote to the buffer
-                buffer[buffer_index] = c;
-                buffer_index++;
+
                 // finally add the buffer
                 add_token(buffer, buffer_index + 1, tokens);
                 buffer_index = 0;
@@ -171,7 +167,7 @@ void copy_string_in_heap(char *string, char **copy) {
 int get_ip_and_netmask_from_str(char *ip_str, int *ip_int, char *netmask) {
     char buffer[4] = "";
     fill_in_char_buffer(buffer, 4, '\0');
-    int ip_byte = 3;  // 3-0
+    int num_byte = 3;  // 3-0
 
     int index_buffer = 0;
     int i = 0;
@@ -180,18 +176,17 @@ int get_ip_and_netmask_from_str(char *ip_str, int *ip_int, char *netmask) {
         if (ip_str[i] == '.') {
             // get the number from the buffer
             int byte = atoi(buffer);
-            // add it to ip_int
-            if (ip_byte == 3) {
-                (*ip_int) += byte * 256 * 256 * 256;
-            }
-            if (ip_byte == 2) {
-                (*ip_int) += byte * 256 * 256;
-            }
-            if (ip_byte == 1) {
-                (*ip_int) += byte * 256;
-            }
-            // decrement ip_byte, reinitialize the buffer/index_buffer
-            ip_byte--;
+            // add the byte to ip_int
+
+            // e.g. ip = "255.0.0.0"
+            //      byte = 255
+            //      num_byte = 3
+            //      *ip_int += 255 << (8 * 3)
+            //              += 255 << 24
+            (*ip_int) += byte << (8 * num_byte);
+
+            // decrement num_byte, reinitialize the buffer/index_buffer
+            num_byte--;
             index_buffer = 0;
             fill_in_char_buffer(buffer, 4, '\0');
         } else {
@@ -215,7 +210,6 @@ int get_ip_and_netmask_from_str(char *ip_str, int *ip_int, char *netmask) {
         // had a value of 32 (CIDR notation)
         (*netmask) = 32;
     }
-
 
     return 0;
 }

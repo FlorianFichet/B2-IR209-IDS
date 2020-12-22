@@ -26,6 +26,9 @@ struct user_args_packet_handler {
 } typedef UserArgsPacketHandler;
 
 
+int write_syslog(char *message);
+
+
 IdsArguments parse_arguments(int argc, char *argv[]) {
     IdsArguments arguments = {
         .print_help = false,
@@ -145,14 +148,19 @@ void get_rule_protocols_from_packet(RuleProtocol *protocols, Packet *packet) {
             break;
     }
 }
-void get_ipv4_from_packet(uint32_t *ips, Packet *packet) {
+void get_ipv4_from_packet(uint32_t *addresses, Packet *packet) {
     Ipv4Datagram *ipv4_header = (Ipv4Datagram *)packet->network_header;
-    ips[0] = ipv4_header->ip_source;
-    ips[1] = ipv4_header->ip_destination;
+    addresses[0] = ipv4_header->ip_source;
+    addresses[1] = ipv4_header->ip_destination;
 }
 void get_ports_from_packet(uint16_t *ports, Packet *packet) {
+    // NOTE: the semicolon ';' after the 'case:' might seem unecessary but we
+    // need it because of the C standard: "a label can only be part of a
+    // statement and a declaration is not a statement". That's why we need an
+    // empty statement.
+
     switch (packet->transport_protocol) {
-        case Tcp:
+        case TP_Tcp:;
             TcpSegment *tcp_header = (TcpSegment *)packet->transport_header;
             ports[0] = tcp_header->th_source_port;
             ports[1] = tcp_header->th_destination_port;
@@ -163,20 +171,25 @@ void get_ports_from_packet(uint16_t *ports, Packet *packet) {
 }
 bool check_protocol_match(Rule *rule, RuleProtocol *protocols) {
     bool protocols_match = false;
+
     for (size_t i = 0; i < 4; i++) {
         if (rule->protocol == protocols[i]) {
             protocols_match = true;
             break;
         }
     }
+
+    return protocols_match;
 }
-bool check_ipv4_match(RuleIpv4 *ips, int nb_rules_ip, uint32_t ip) {
+bool check_ipv4_match(RuleIpv4 *addresses, int nb_rules_ip, uint32_t ip) {
     bool ips_match = false;
+
     for (size_t i = 0; i < nb_rules_ip; i++) {
         // NOTE: no break because we have to do all the list in case there
         // is a negation
-        if (ips[i].ip == -1) {  // -1 => any
-            ips_match = ips[i].negation;
+        if (addresses[i].ip == -1) {  // -1 => any
+            // !negation => match
+            ips_match = !addresses[i].negation;
         } else {
             // e.g. 255.255.255.255/24
             //  a. inverse_netmask = 8
@@ -184,14 +197,61 @@ bool check_ipv4_match(RuleIpv4 *ips, int nb_rules_ip, uint32_t ip) {
             //             = 255.255.255.255 % 256
             //             =   0.  0.  0.255
             //  c. network_ip = 255.255.255.0
-            uint32_t inverse_netmask = 32 - ips[i].netmask;
+            uint32_t inverse_netmask = 32 - addresses[i].netmask;
             uint32_t host_ip = ip % (1 << inverse_netmask);
             uint32_t network_ip = ip - host_ip;
-            if (network_ip == ips[i].ip) {
-                ips_match = ips[i].negation;
+            if (network_ip == addresses[i].ip) {
+                ips_match = !addresses[i].negation;
             }
         }
     }
+
+    return ips_match;
+}
+bool check_port_match(RulePort *ports, int nb_rules_port, uint16_t port) {
+    bool ports_match = false;
+
+    for (size_t i = 0; i < nb_rules_port; i++) {
+        // NOTE: no break because we have to do all the list in case there
+        // is a negation
+
+        // end_port = -1 => [start_port, ...]
+        if (ports[i].end_port == -1 && port >= ports[i].start_port) {
+            // !negation => match
+            ports_match = !ports[i].negation;
+        } else if (port >= ports[i].start_port && port <= ports[i].end_port) {
+            ports_match = ports[i].negation;
+        }
+    }
+
+    return ports_match;
+}
+bool check_similarity_content(char *content, char *s) {
+    size_t i = 0;
+    while (content[i] != '\0') {
+        if (content[i] != s[i]) {
+            return false;
+        }
+
+        i++;
+    }
+
+    return true;
+}
+bool check_option_content(char *content, Packet *packet) {
+    char *s = (char *)packet->data_link_header;
+
+    size_t i = 0;
+    while (i < packet->packet_length) {
+        char c = s[i];
+        if (c == content[0] && check_similarity_content(content, s + i)) {
+            return true;
+        }
+
+        i++;
+    }
+
+    return false;
 }
 
 
@@ -203,15 +263,16 @@ void rules_matcher(Rule *rules, int count, Packet *packet) {
         No_Protocol,
         No_Protocol,
     };
-    uint32_t ips[2] = {0, 0};
+    // NOTE: if we do both ipv4, ipv6 (and even mac addresses), we could just
+    // use the type 'uint128_t' instead
+    uint32_t addresses[2] = {0, 0};
     uint16_t ports[2] = {0, 0};
     get_rule_protocols_from_packet(protocols, packet);
-    get_rule_ports_from_packet(ports, packet);
     if (packet->network_protocol == NP_Ipv4) {
-        get_rule_ipv4_from_packet(ips, packet);
+        get_ipv4_from_packet(addresses, packet);
     }
     if (packet->transport_protocol != TP_None) {
-        get_rule_ports_from_packet(ports, packet);
+        get_ports_from_packet(ports, packet);
     }
 
     // for every rule
@@ -223,19 +284,38 @@ void rules_matcher(Rule *rules, int count, Packet *packet) {
             continue;
         }
 
-        // 2 check if the ips match (only ipv4 for the moment)
-        // 2.1. check if the source ips match
-        if (!check_ipv4_match(rule->sources, rule->nb_sources, ips[0])) {
+        // 2 check if the addresses match (ONLY IPV4 FOR THE MOMENT)
+        // 2.1. source addresses
+        if (!check_ipv4_match(rule->sources, rule->nb_sources, addresses[0])) {
             continue;
         }
-        // 2.2. check if the destination ips match
+        // 2.2. destination addresses
         if (!check_ipv4_match(rule->destinations, rule->nb_destinations,
-                              ips[1])) {
+                              addresses[1])) {
             continue;
         }
 
         // 3. check if the ports match (taking the direction in account)
+        // 3.1. source ports
+        if (!check_port_match(rule->source_ports, rule->nb_source_ports,
+                              ports[0])) {
+            continue;
+        }
+        // 3.2. destination ports
+        if (!check_port_match(rule->destination_ports,
+                              rule->nb_destination_ports, ports[1])) {
+            continue;
+        }
+
         // 4. check if the options match
+        for (size_t i = 0; i < rule->nb_options; i++) {
+            RuleOption *option = &(rule->options[i]);
+            if (strcmp(option->keyword, "content") == 0 &&
+                check_option_content(option->settings[0], packet)) {
+                continue;
+            }
+        }
+
         // 5. write to syslog
     }
 }
