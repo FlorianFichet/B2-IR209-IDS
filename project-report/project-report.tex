@@ -1,0 +1,288 @@
+\documentclass[a4paper]{article}
+
+%% Language and font encodings
+\usepackage[french]{babel}
+\usepackage[utf8x]{inputenc}
+\usepackage[T1]{fontenc}
+
+%% Sets page size and margins
+\usepackage[a4paper,top=3cm,bottom=3cm,left=2cm,right=2cm,marginparwidth=2cm]{geometry}
+
+%% Useful packages
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage[colorinlistoftodos]{todonotes}
+\usepackage[colorlinks=true, allcolors=black]{hyperref}
+\usepackage{fourier-orns}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{fancyvrb}
+\pagestyle{fancy} 
+\setcounter{tocdepth}{5}
+
+%% Tikz stuff
+\usepackage{tikz}
+\usetikzlibrary{calc, arrows}
+\tikzstyle{incolore} = [rectangle, rounded corners, draw=black, minimum height=1cm, minimum width=3cm, text width=3cm, text centered]
+
+\usepackage{libertine}
+\newcommand{\hsp}{\hspace{20pt}}
+\newcommand{\HRule}{\rule{\linewidth}{0.5mm}}
+
+\renewcommand{\headrulewidth}{1pt}
+\fancyhead[C]{} 
+\fancyhead[L]{}
+\fancyhead[R]{\footnotesize{\leftmark}}
+
+\renewcommand{\footrulewidth}{1pt}
+\fancyfoot[C]{} 
+\fancyhead[L]{}
+\fancyfoot[R]{\thepage}
+
+\definecolor{Zgris}{rgb}{0.87,0.85,0.85}
+
+\usepackage{eso-pic,graphicx}
+\usepackage{xcolor}
+\newcommand{\bgimg}[1]
+{
+    \AddToShipoutPicture
+    {
+        \put(\LenToUnit{0 cm},\LenToUnit{0 cm})
+        {
+            \includegraphics[width=\paperwidth,height=\paperheight]{#1}
+        }
+    }
+}
+
+\usepackage{xcolor}
+\usepackage{listings}
+
+\definecolor{mGreen}{rgb}{0,0.6,0}
+
+\lstdefinestyle{CStyle}{
+    commentstyle=\color{mGreen},
+    keywordstyle=\color{red},
+    numberstyle=\color{gray},
+    stringstyle=\color{purple},
+    frame=single,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2,
+    language=C
+}
+
+\begin{document}
+
+
+
+
+
+\begin{titlepage}
+    \begin{sffamily}
+        \begin{center}
+
+            \includegraphics[width=5cm]{images/LogoHenallux.PNG}~\\[1.5cm]
+            \textsc{\Large Rapport de projet}\\[1.5cm]
+
+            \HRule \\[0.4cm]
+            { \huge \bfseries Implémentation d'un IDS \\[0.4cm] }
+            \HRule \\[2cm]
+
+            \begin{minipage}{0.4\textwidth}
+                \begin{flushleft} \large
+                    Grégoire Roumache\\
+                    Florian Fichet\\
+                \end{flushleft}
+            \end{minipage}
+            \begin{minipage}{0.55\textwidth}
+                \begin{flushright} \large
+                    Développement -- Sécurité des systèmes\\
+                    Deuxième année, groupe C-2 \\
+                    Année académique 2020-2021\\
+                \end{flushright}
+            \end{minipage}
+            \vfill
+
+            {\large 3 Septembre 2017}
+
+        \end{center}
+    \end{sffamily}
+\end{titlepage}
+
+\let\cleardoublepage\clearpage
+
+
+
+
+
+
+
+
+
+
+\section{Introduction}
+
+
+
+
+
+Pour le cours de Développement, nous avons dû implémenter un IDS (Intrusion Detection System) qui analyse le trafic qui passe par une interface réseau de la machine. Il permet de détecter des activités suspectes en fonction d'un certain nombre de règles données au préalable. En cas d'anomalie, le programme peut alerter l'utilisateur en la signalant dans les logs du système.
+
+Nous nous sommes organisés en utilisant la plateforme github, comme recommandé, et voici le lien vers notre répertoire: 
+\begin{center}
+    {\small \url{https://github.com/groumache/Intrusion-Detection-System}}
+\end{center}
+
+
+
+
+
+
+
+
+
+
+\section{Organisation du travail et configuration des outils}
+
+
+
+
+
+%%
+
+
+
+
+
+
+
+
+
+
+\section{Architecture du système}
+
+
+
+
+
+%%
+
+
+
+
+
+
+
+
+
+
+\section{Explication générale sur le fonctionnement du code}
+
+
+
+
+
+%% /!\ /!\ /!\ EXPLIQUER QUE LES CHOIX D'IMPLÉMENTATION SONT DANS LA SECTION SUIVANTE
+
+
+
+
+
+
+
+
+
+
+\section{Choix d'implémentation spécifiques et problèmes rencontrés}
+
+
+
+
+
+%%
+%% - expliquer le problème avec les structures
+%% - expliquer les fonctions récursives
+%% - expliquer les fonctions qui changent l'endianness
+%% - expliquer les macros avec les masques
+%% - expliquer les endroits où j'ai utiliser un shift de bits (<<)
+%%
+
+Voici hello world:
+
+\begin{lstlisting}[style=CStyle]
+#include <stdio.h>
+
+// this is hello world
+int main(void)
+{
+    printf("Hello World!"); 
+}
+\end{lstlisting}
+
+
+
+
+
+
+
+
+
+
+\section{Conclusion}
+
+
+
+
+
+%%
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\newpage \tableofcontents \listoffigures
+\begin{thebibliography}{9}
+\bibitem{1} {\small \url{https://github.com/groumache/Intrusion-Detection-System}}
+% \bibitem{2} 
+% \bibitem{3} 
+% \bibitem{4} 
+% \bibitem{5} 
+% \bibitem{6} 
+\end{thebibliography}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\end{document}
