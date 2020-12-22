@@ -145,18 +145,5 @@ struct packet {
 } typedef Packet;
 
 
-void populate_data_link_layer(Packet *packet);
-void populate_network_layer(Packet *packet);
-void populate_transport_layer(Packet *packet);
-void populate_application_layer(Packet *packet);
 void populate_packet(void *body, Packet *packet);
-
-
-void print_ethernet_header(EthernetFrame *ethernet);
-void print_ipv4_datagram_header(Ipv4Datagram *ipv4);
-void print_tcp_segment_header(TcpSegment *tcp);
 void print_packet_headers(Packet *packet);
-
-
-void dump_memory(void *start, size_t size);
-void dump_memory_hex(void *start, size_t size);
