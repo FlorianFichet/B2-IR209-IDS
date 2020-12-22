@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <stdlib.h>
+#include <syslog.h>
 
 #include "populate.h"
 #include "rules.h"
@@ -26,7 +27,12 @@ struct user_args_packet_handler {
 } typedef UserArgsPacketHandler;
 
 
-int write_syslog(char *message);
+void write_syslog(char *message){
+    openlog("Ids", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL1);
+    syslog (LOG_ALERT, *message);
+    closelog ();
+
+}
 
 
 IdsArguments parse_arguments(int argc, char *argv[]) {
