@@ -307,11 +307,50 @@ L'extension C/C++ de visual studio code nous permet de faire du formatage automa
 
 
 
-\section{Architecture du système}
+\section{Architecture du projet}
 
 
 
-%%
+
+
+\subsection{Architecture du système}
+
+
+
+Comme on peut voir sur la figure \ref{fig:archsys}, l'ids est divisé en quatre parties logiques.
+\begin{enumerate}
+    \item \textit{read\_rules}: cette partie est responsable d'extraire les règles du fichier pour les mettre dans les structures appropriées
+    \item \textit{populate\_packet}: cette partie doit extraire le paquet pour le placer dans les structures appropriées
+    \item \textit{main}: cette partie a 4 responsabilités:
+    \begin{itemize}
+        \item analyse les arguments du programme
+        \item faire appel aux parties \textit{read\_rules}, et \textit{populate\_packet}
+        \item vérifier si les packets correspondent aux règles
+        \item si ils correspondent aux règles, elle doit écrire un message dans syslog
+    \end{itemize}
+\end{enumerate}
+
+\begin{figure}[H]
+    \includegraphics[width=0.99\linewidth]{../markdown-explanations/images/software-architecture-2.png}
+    \caption{Architecture du système}
+    \label{fig:archsys}
+\end{figure}
+
+
+
+
+
+\subsection{Structure du projet}
+
+
+
+Pour mieux comprendre l'organisation du projet, on peut regarder la figure \ref{fig:structproj} sert à montrer quels fichiers sont inclus dans quels autres.
+
+\begin{figure}[H]
+    \includegraphics[width=0.99\linewidth]{../markdown-explanations/images/project-structure.png}
+    \caption{Structure du projet}
+    \label{fig:structproj}
+\end{figure}
 
 
 
