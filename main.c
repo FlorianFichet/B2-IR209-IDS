@@ -205,6 +205,10 @@ void get_ports_from_packet(uint16_t *ports, Packet *packet) {
             ports[0] = tcp_header->th_source_port;
             ports[1] = tcp_header->th_destination_port;
             break;
+        case PP_Udp:;
+            UdpSegment *udp_header = (UdpSegment *)packet->transport_header;
+            ports[0] = udp_header->port_source;
+            ports[1] = udp_header->port_destination;
         default:
             break;
     }
@@ -425,7 +429,17 @@ void packet_handler(u_char *user_args, const struct pcap_pkthdr *packet_header,
     UserArgsPacketHandler *args = (UserArgsPacketHandler *)user_args;
 
     // populate the packet
-    Packet packet;
+    Packet packet = {
+        .data_link_protocol = PP_Ethernet,
+        .network_protocol = PP_None,
+        .transport_protocol = PP_None,
+        .application_protocol = PP_None,
+
+        .data_link_header = (void *)packet_body,
+        .network_header = NULL,
+        .transport_header = NULL,
+        .application_header = NULL,
+    };
     packet.packet_header = (struct pcap_pkthdr *)packet_header;
     populate_packet((void *)packet_body, &packet);
 
@@ -438,7 +452,8 @@ void packet_handler(u_char *user_args, const struct pcap_pkthdr *packet_header,
     rules_matcher(args->rules, args->nb_rules, &packet, args);
 
     // free the packet's application header
-    if (packet.application_header != NULL) {
+    if (packet.application_header != NULL &&
+        packet.application_protocol != PP_None) {
         free(packet.application_header);
     }
 }

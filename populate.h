@@ -9,11 +9,11 @@
 #define SIZE_MAC_ADDRESS 6
 #define SIZE_IPV4_ADDRESS 4
 #define SIZE_ETHERNET_HEADER 14
+#define SIZE_UDP_HEADER 8
 
 
-#define SIZE_ETHERNET 14
-#define ETHER_ADDR_LEN_STR 18
 #define IPV4_ADDR_LEN_STR 16
+
 
 #define ARP_PROTOCOL 2054
 #define IPV4_PROTOCOL 2048
@@ -97,6 +97,13 @@ struct tcp_segment {
     u_short th_checksum;
     u_short th_urgent_pointer;
 } typedef TcpSegment;
+struct udp_segment {
+    u_short port_source;
+    u_short port_destination;
+    u_short length;
+    u_short checksum;
+} typedef UdpSegment;
+
 struct http_data {
     bool is_response;
     HttpRequestMethod request_method;  // only for requests

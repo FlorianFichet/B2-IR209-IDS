@@ -42,6 +42,8 @@ size_t get_transport_protocol_header_length(Packet *packet) {
             size_transport =
                 TCP_OFFSET_VALUE((TcpSegment *)packet->transport_header) * 4;
             break;
+        case PP_Udp:
+            size_transport = SIZE_UDP_HEADER;
         default:
             break;
     }
@@ -275,6 +277,38 @@ void populate_tcp_segment(Packet *packet) {
             packet->transport_header + TCP_OFFSET_VALUE(tcp) * 4;
     }
 }
+void populate_udp_segment(Packet *packet) {
+    UdpSegment *udp = packet->transport_header;
+
+    // convert endianness
+    convert_endianess_16bits(udp->port_source);
+    convert_endianess_16bits(udp->port_destination);
+    convert_endianess_16bits(udp->length);
+    convert_endianess_16bits(udp->checksum);
+
+    // check if there is an application layer by comparing the length of the
+    // headers with the total size of the packet, if there is an application
+    // layer add the protocol and the header's address
+    size_t size_ethernet = SIZE_ETHERNET_HEADER;
+    size_t size_network = get_network_protocol_header_length(packet);
+    size_t size_transport = get_transport_protocol_header_length(packet);
+    uint32_t packet_length = packet->packet_header->caplen;
+
+    // NOTE: it's also possible to use the: ipv4->total_length to check whether
+    // there is an application layer but it's not "protocol independant"
+    if (packet_length > size_ethernet + size_network + size_transport) {
+        // NOTE: one of the ports may not be the protocol's port,
+        //       that's why we have to test both
+        packet->application_protocol =
+            get_application_protocol_from_port(udp->port_source);
+        if (packet->application_protocol == PP_None) {
+            packet->application_protocol =
+                get_application_protocol_from_port(udp->port_destination);
+        }
+
+        packet->application_header = packet->transport_header + SIZE_UDP_HEADER;
+    }
+}
 void populate_http_data(Packet *packet) {
     // 1. copy the location of the http header before malloc a HttpData struct
     void *http_header = packet->application_header;
@@ -320,6 +354,9 @@ void populate_transport_layer(Packet *packet) {
         case PP_Tcp:
             populate_tcp_segment(packet);
             break;
+        case PP_Udp:
+            populate_udp_segment(packet);
+            break;
         default:
             break;
     }
@@ -334,17 +371,6 @@ void populate_application_layer(Packet *packet) {
     }
 }
 void populate_packet(void *packet_body, Packet *packet) {
-    // initialize
-    packet->data_link_protocol = PP_Ethernet;
-    packet->network_protocol = PP_None;
-    packet->transport_protocol = PP_None;
-    packet->application_protocol = PP_None;
-
-    packet->data_link_header = packet_body;
-    packet->network_header = NULL;
-    packet->transport_header = NULL;
-    packet->application_header = NULL;
-
     // populate
     populate_data_link_layer(packet);
     if (packet->network_protocol != PP_None &&
@@ -472,6 +498,14 @@ void print_tcp_segment_header(TcpSegment *tcp) {
     printf("    checksum: %u\n", tcp->th_checksum);
     printf("    urgent pointer: %u\n", tcp->th_urgent_pointer);
 }
+void print_udp_segment_header(UdpSegment *udp) {
+    printf("udp header:\n");
+
+    printf("    port source: %u\n", udp->port_source);
+    printf("    port destination: %u\n", udp->port_destination);
+    printf("    length: %u\n", udp->length);
+    printf("    checksum: %u\n", udp->checksum);
+}
 void print_http_data_header(HttpData *http) {
     printf("http header:\n    ");
 
@@ -491,7 +525,6 @@ void print_http_data_header(HttpData *http) {
 
     printf("\n");
 }
-
 void print_packet_headers(Packet *packet) {
     static int i = 0;
     printf("\nPacket n°%d:\n", ++i);
@@ -519,6 +552,7 @@ void print_packet_headers(Packet *packet) {
             print_tcp_segment_header(packet->transport_header);
             break;
         case PP_Udp:
+            print_udp_segment_header(packet->transport_header);
             break;
         default:
             break;
@@ -532,17 +566,4 @@ void print_packet_headers(Packet *packet) {
         default:
             break;
     }
-}
-
-
-void dump_memory_hex(void *start, size_t size) {
-    int i = 0;
-    while (i < size) {
-        if (i % 16 == 15) {
-            printf("\n");
-        }
-        printf("%02x ", *(uint8_t *)(start + i));
-        i++;
-    }
-    printf("\n");
 }
