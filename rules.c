@@ -409,38 +409,38 @@ void get_rule_action(Rule *rule, Tokens *tokens, int *i_ptr) {
 }
 void get_rule_protocol(Rule *rule, Tokens *tokens, int *i_ptr) {
     if (strcmp(tokens->tokens[*i_ptr], "ethernet") == 0) {
-        rule->protocol = Ethernet;
+        rule->protocol = RP_Ethernet;
     } else if (strcmp(tokens->tokens[*i_ptr], "ipv4") == 0 ||
                strcmp(tokens->tokens[*i_ptr], "ip") == 0) {
-        rule->protocol = Ipv4;
+        rule->protocol = RP_Ipv4;
     } else if (strcmp(tokens->tokens[*i_ptr], "ipv6") == 0) {
-        rule->protocol = Ipv6;
+        rule->protocol = RP_Ipv6;
     } else if (strcmp(tokens->tokens[*i_ptr], "tcp") == 0) {
-        rule->protocol = Tcp;
+        rule->protocol = RP_Tcp;
     } else if (strcmp(tokens->tokens[*i_ptr], "udp") == 0) {
-        rule->protocol = Udp;
+        rule->protocol = RP_Udp;
     } else if (strcmp(tokens->tokens[*i_ptr], "icmp") == 0) {
-        rule->protocol = Icmp;
+        rule->protocol = RP_Icmp;
     } else if (strcmp(tokens->tokens[*i_ptr], "http") == 0) {
-        rule->protocol = Http;
+        rule->protocol = RP_Http;
     } else if (strcmp(tokens->tokens[*i_ptr], "tls") == 0) {
-        rule->protocol = Tls;
+        rule->protocol = RP_Tls;
     } else if (strcmp(tokens->tokens[*i_ptr], "ssh") == 0) {
-        rule->protocol = Ssh;
+        rule->protocol = RP_Ssh;
     } else if (strcmp(tokens->tokens[*i_ptr], "ftp") == 0) {
-        rule->protocol = Ftp;
+        rule->protocol = RP_Ftp;
     } else if (strcmp(tokens->tokens[*i_ptr], "tftp") == 0) {
-        rule->protocol = Tftp;
+        rule->protocol = RP_Tftp;
     } else if (strcmp(tokens->tokens[*i_ptr], "smtp") == 0) {
-        rule->protocol = Smtp;
+        rule->protocol = RP_Smtp;
     } else if (strcmp(tokens->tokens[*i_ptr], "imap") == 0) {
-        rule->protocol = Imap;
+        rule->protocol = RP_Imap;
     } else if (strcmp(tokens->tokens[*i_ptr], "ntp") == 0) {
-        rule->protocol = Ntp;
+        rule->protocol = RP_Ntp;
     } else if (strcmp(tokens->tokens[*i_ptr], "dhcp") == 0) {
-        rule->protocol = Dhcp;
+        rule->protocol = RP_Dhcp;
     } else if (strcmp(tokens->tokens[*i_ptr], "dns") == 0) {
-        rule->protocol = Dns;
+        rule->protocol = RP_Dns;
     }
 
     (*i_ptr)++;

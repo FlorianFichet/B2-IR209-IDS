@@ -24,7 +24,7 @@ size_t get_network_protocol_header_length(Packet *packet) {
     size_t size_network = 0;
 
     switch (packet->network_protocol) {
-        case NP_Ipv4:
+        case PP_Ipv4:
             size_network =
                 ((Ipv4Datagram *)packet->network_header)->ip_header_length * 4;
             break;
@@ -38,7 +38,7 @@ size_t get_transport_protocol_header_length(Packet *packet) {
     size_t size_transport = 0;
 
     switch (packet->transport_protocol) {
-        case TP_Tcp:
+        case PP_Tcp:
             size_transport =
                 TCP_OFFSET_VALUE((TcpSegment *)packet->transport_header) * 4;
             break;
@@ -48,36 +48,36 @@ size_t get_transport_protocol_header_length(Packet *packet) {
 
     return size_transport;
 }
-NetworkProtocol get_network_protocol_from_code(uint16_t protocol) {
+PopulateProtocol get_network_protocol_from_code(uint16_t protocol) {
     switch (protocol) {
         case ARP_PROTOCOL:
-            return NP_Arp;
+            return PP_Arp;
         case IPV4_PROTOCOL:
-            return NP_Ipv4;
+            return PP_Ipv4;
         case IPV6_PROTOCOL:
-            return NP_Ipv6;
+            return PP_Ipv6;
         default:
-            return NP_None;
+            return PP_None;
     }
 }
-TransportProtocol get_transport_protocol_from_code(uint8_t protocol) {
+PopulateProtocol get_transport_protocol_from_code(uint8_t protocol) {
     switch (protocol) {
         case UDP_PROTOCOL:
-            return TP_Udp;
+            return PP_Udp;
         case TCP_PROTOCOL:
-            return TP_Tcp;
+            return PP_Tcp;
         default:
-            return TP_None;
+            return PP_None;
     }
 }
-ApplicationProtocol get_application_protocol_from_port(uint32_t port) {
+PopulateProtocol get_application_protocol_from_port(uint32_t port) {
     switch (port) {
         case HTTP_PORT:
-            return AP_Http;
+            return PP_Http;
         case HTTPS_PORT:
-            return AP_Https;
+            return PP_Https;
         default:
-            return AP_None;
+            return PP_None;
     }
 }
 void get_http_status_code(HttpData *http_data) {
@@ -265,7 +265,7 @@ void populate_tcp_segment(Packet *packet) {
         //       that's why we have to test both
         packet->application_protocol =
             get_application_protocol_from_port(tcp->th_source_port);
-        if (packet->application_protocol == AP_None) {
+        if (packet->application_protocol == PP_None) {
             packet->application_protocol =
                 get_application_protocol_from_port(tcp->th_destination_port);
         }
@@ -299,7 +299,7 @@ void populate_http_data(Packet *packet) {
 
 void populate_data_link_layer(Packet *packet) {
     switch (packet->data_link_protocol) {
-        case DLP_Ethernet:
+        case PP_Ethernet:
             populate_ethernet_frame(packet);
             break;
         default:
@@ -308,7 +308,7 @@ void populate_data_link_layer(Packet *packet) {
 }
 void populate_network_layer(Packet *packet) {
     switch (packet->network_protocol) {
-        case NP_Ipv4:
+        case PP_Ipv4:
             populate_ipv4_datagram(packet);
             break;
         default:
@@ -317,7 +317,7 @@ void populate_network_layer(Packet *packet) {
 }
 void populate_transport_layer(Packet *packet) {
     switch (packet->transport_protocol) {
-        case TP_Tcp:
+        case PP_Tcp:
             populate_tcp_segment(packet);
             break;
         default:
@@ -326,7 +326,7 @@ void populate_transport_layer(Packet *packet) {
 }
 void populate_application_layer(Packet *packet) {
     switch (packet->application_protocol) {
-        case AP_Http:
+        case PP_Http:
             populate_http_data(packet);
             break;
         default:
@@ -335,10 +335,10 @@ void populate_application_layer(Packet *packet) {
 }
 void populate_packet(void *packet_body, Packet *packet) {
     // initialize
-    packet->data_link_protocol = DLP_Ethernet;
-    packet->network_protocol = NP_None;
-    packet->transport_protocol = TP_None;
-    packet->application_protocol = AP_None;
+    packet->data_link_protocol = PP_Ethernet;
+    packet->network_protocol = PP_None;
+    packet->transport_protocol = PP_None;
+    packet->application_protocol = PP_None;
 
     packet->data_link_header = packet_body;
     packet->network_header = NULL;
@@ -347,14 +347,14 @@ void populate_packet(void *packet_body, Packet *packet) {
 
     // populate
     populate_data_link_layer(packet);
-    if (packet->network_protocol != NP_None &&
-        packet->network_protocol != NP_Arp) {
+    if (packet->network_protocol != PP_None &&
+        packet->network_protocol != PP_Arp) {
         populate_network_layer(packet);
     }
-    if (packet->transport_protocol != TP_None) {
+    if (packet->transport_protocol != PP_None) {
         populate_transport_layer(packet);
     }
-    if (packet->application_protocol != AP_None) {
+    if (packet->application_protocol != PP_None) {
         populate_application_layer(packet);
     }
 }
@@ -497,37 +497,37 @@ void print_packet_headers(Packet *packet) {
     printf("\nPacket n°%d:\n", ++i);
 
     switch (packet->data_link_protocol) {
-        case DLP_Ethernet:
+        case PP_Ethernet:
             print_ethernet_header(packet->data_link_header);
             break;
         default:
             break;
     }
     switch (packet->network_protocol) {
-        case NP_Ipv4:
+        case PP_Ipv4:
             print_ipv4_datagram_header(packet->network_header);
             break;
-        case NP_Ipv6:
+        case PP_Ipv6:
             break;
-        case NP_Arp:
+        case PP_Arp:
             break;
         default:
             break;
     }
     switch (packet->transport_protocol) {
-        case TP_Tcp:
+        case PP_Tcp:
             print_tcp_segment_header(packet->transport_header);
             break;
-        case TP_Udp:
+        case PP_Udp:
             break;
         default:
             break;
     }
     switch (packet->application_protocol) {
-        case AP_Http:
+        case PP_Http:
             print_http_data_header(packet->application_header);
             break;
-        case AP_Https:
+        case PP_Https:
             break;
         default:
             break;

@@ -150,41 +150,41 @@ int get_activated_handle(pcap_t **handle_ptr, char device[],
 
 void get_rule_protocols_from_packet(RuleProtocol *protocols, Packet *packet) {
     switch (packet->data_link_protocol) {
-        case DLP_Ethernet:
-            protocols[0] = Ethernet;
+        case PP_Ethernet:
+            protocols[0] = RP_Ethernet;
             break;
         default:
-            protocols[0] = No_Protocol;
+            protocols[0] = RP_No_Protocol;
             break;
     }
     switch (packet->network_protocol) {
-        case NP_Ipv4:
-            protocols[1] = Ipv4;
+        case PP_Ipv4:
+            protocols[1] = RP_Ipv4;
             break;
-        case NP_Ipv6:
-            protocols[1] = Ipv6;
+        case PP_Ipv6:
+            protocols[1] = RP_Ipv6;
             break;
         default:
-            protocols[1] = No_Protocol;
+            protocols[1] = RP_No_Protocol;
             break;
     }
     switch (packet->transport_protocol) {
-        case TP_Tcp:
-            protocols[2] = Tcp;
+        case PP_Tcp:
+            protocols[2] = RP_Tcp;
             break;
-        case TP_Udp:
-            protocols[2] = Udp;
+        case PP_Udp:
+            protocols[2] = RP_Udp;
             break;
         default:
-            protocols[2] = No_Protocol;
+            protocols[2] = RP_No_Protocol;
             break;
     }
     switch (packet->application_protocol) {
-        case AP_Http:
-            protocols[3] = Http;
+        case PP_Http:
+            protocols[3] = RP_Http;
             break;
         default:
-            protocols[3] = No_Protocol;
+            protocols[3] = RP_No_Protocol;
             break;
     }
 }
@@ -200,7 +200,7 @@ void get_ports_from_packet(uint16_t *ports, Packet *packet) {
     // empty statement.
 
     switch (packet->transport_protocol) {
-        case TP_Tcp:;
+        case PP_Tcp:;
             TcpSegment *tcp_header = (TcpSegment *)packet->transport_header;
             ports[0] = tcp_header->th_source_port;
             ports[1] = tcp_header->th_destination_port;
@@ -378,28 +378,25 @@ void rules_matcher(Rule *rules, int count, Packet *packet,
                    UserArgsPacketHandler *args) {
     // transform the packet's data to "rule's data"
     RuleProtocol protocols[4] = {
-        No_Protocol,
-        No_Protocol,
-        No_Protocol,
-        No_Protocol,
+        RP_No_Protocol,
+        RP_No_Protocol,
+        RP_No_Protocol,
+        RP_No_Protocol,
     };
     // NOTE: if we do both ipv4, ipv6 (and even mac addresses), we could just
     // use the type 'uint128_t' instead
     uint32_t addresses[2] = {0, 0};
     uint16_t ports[2] = {0, 0};
     get_rule_protocols_from_packet(protocols, packet);
-    if (packet->network_protocol == NP_Ipv4) {
+    if (packet->network_protocol == PP_Ipv4) {
         get_ipv4_from_packet(addresses, packet);
     }
-    if (packet->transport_protocol != TP_None) {
+    if (packet->transport_protocol != PP_None) {
         get_ports_from_packet(ports, packet);
     }
 
     // for every rule
     for (size_t num_rule = 0; num_rule < count; num_rule++) {
-        // NOTE: the local copy here is to make the code simpler by avoiding to
-        // write things such as: "rules[num_rule].x". However, this should be
-        // optimized by the compiler.
         Rule *rule = rules + num_rule;
 
         // 1. check if the packet matches the rule
@@ -415,7 +412,7 @@ void rules_matcher(Rule *rules, int count, Packet *packet,
         get_rule_msg(rule, message);
         write_syslog(message, packet);
 
-        // 3. if the user wants to print log, print it
+        // 3. if the user wants to print the log, print it
         if (args->ids_arguments.print_logs) {
             print_logs(message, packet);
         }

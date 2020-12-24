@@ -24,9 +24,9 @@
 #define HTTP_PORT 80
 #define HTTPS_PORT 443
 
-#define IP_RF 0x8000      /* reserved fragment flag */
-#define IP_DF 0x4000      /* don't fragment flag */
-#define IP_MF 0x2000      /* more fragments flag */
+#define IP_RF 0x8000          /* reserved fragment flag */
+#define IP_DF 0x4000          /* don't fragment flag */
+#define IP_MF 0x2000          /* more fragments flag */
 #define IP_OFFSET_MASK 0x1fff /* mask for fragmenting bits */
 
 #define IP_OFFSET_VALUE(ip) (((ip)->ip_offset_and_flags) & (IP_OFFSET_MASK))
@@ -107,32 +107,24 @@ struct http_data {
 } typedef HttpData;
 
 
-enum data_link_protocol {
-    DLP_None,
-    DLP_Ethernet,
-} typedef DataLinkProtocol;
-enum network_protocol {
-    NP_None,
-    NP_Ipv4,
-    NP_Ipv6,
-    NP_Arp,
-} typedef NetworkProtocol;
-enum transport_protocol {
-    TP_None,
-    TP_Tcp,
-    TP_Udp,
-} typedef TransportProtocol;
-enum application_protocol {
-    AP_None,
-    AP_Http,
-    AP_Https,
-} typedef ApplicationProtocol;
+enum populate_protocol {
+    // NOTE: "PP" stands for "Populate Protocol"
+    PP_None,
+    PP_Ethernet,
+    PP_Ipv4,
+    PP_Ipv6,
+    PP_Arp,
+    PP_Tcp,
+    PP_Udp,
+    PP_Http,
+    PP_Https,
+} typedef PopulateProtocol;
 
 struct packet {
-    DataLinkProtocol data_link_protocol;
-    NetworkProtocol network_protocol;
-    TransportProtocol transport_protocol;
-    ApplicationProtocol application_protocol;
+    PopulateProtocol data_link_protocol;
+    PopulateProtocol network_protocol;
+    PopulateProtocol transport_protocol;
+    PopulateProtocol application_protocol;
 
     void *data_link_header;
     void *network_header;
