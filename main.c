@@ -27,11 +27,14 @@ struct user_args_packet_handler {
 } typedef UserArgsPacketHandler;
 
 
-void write_syslog(char *message){
+void write_syslog(char *message) {
+    // NOTE: options are coded on an int
+    // LOG_CONS   = 0x02 = log on the console if errors in sending
+    // LOG_PID    = 0x01 = log the pid with each message
+    // LOG_NDELAY = 0x08 = don't delay open
     openlog("Ids", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL1);
-    syslog (LOG_ALERT, *message);
-    closelog ();
-
+    syslog(LOG_ALERT, message);
+    closelog();
 }
 
 
@@ -259,6 +262,16 @@ bool check_option_content(char *content, Packet *packet) {
 
     return false;
 }
+void get_rule_msg(Rule *rule, char *message) {
+    RuleOption *options = rule->options;
+
+    for (size_t i = 0; i < rule->nb_options; i++) {
+        if (strcmp(options[i].keyword, "msg") == 0) {
+            strcpy(message, options[i].settings[0]);
+            return;
+        }
+    }
+}
 
 
 void rules_matcher(Rule *rules, int count, Packet *packet) {
@@ -283,7 +296,19 @@ void rules_matcher(Rule *rules, int count, Packet *packet) {
 
     // for every rule
     for (size_t num_rule = 0; num_rule < count; num_rule++) {
+        // NOTE: the local copy here is to make the code simpler by avoiding to
+        // write things such as: "rules[num_rule].x". However, this should be
+        // optimized by the compiler.
         Rule *rule = rules + num_rule;
+        RuleDirection direction = rule->direction;
+        RuleIpv4 *sources = rule->sources;
+        RuleIpv4 *destinations = rule->destinations;
+        int nb_sources = rule->nb_sources;
+        int nb_destinations = rule->nb_destinations;
+        RulePort *source_ports = rule->source_ports;
+        RulePort *destination_ports = rule->destination_ports;
+        int nb_source_ports = rule->nb_source_ports;
+        int nb_destination_ports = rule->nb_destination_ports;
 
         // 1. check if the protocols match
         if (!check_protocol_match(rule, protocols)) {
@@ -292,24 +317,48 @@ void rules_matcher(Rule *rules, int count, Packet *packet) {
 
         // 2 check if the addresses match (ONLY IPV4 FOR THE MOMENT)
         // 2.1. source addresses
-        if (!check_ipv4_match(rule->sources, rule->nb_sources, addresses[0])) {
+        if (direction == Forward &&
+            !check_ipv4_match(sources, nb_sources, addresses[0])) {
+            continue;
+        }
+        if (direction == Both_directions &&
+            (!check_ipv4_match(sources, nb_sources, addresses[0]) ||
+             !check_ipv4_match(sources, nb_sources, addresses[1]))) {
             continue;
         }
         // 2.2. destination addresses
-        if (!check_ipv4_match(rule->destinations, rule->nb_destinations,
-                              addresses[1])) {
+        if (direction == Forward &&
+            !check_ipv4_match(destinations, nb_destinations, addresses[1])) {
+            continue;
+        }
+        if (direction == Both_directions &&
+            (!check_ipv4_match(destinations, nb_destinations, addresses[0]) ||
+             !check_ipv4_match(destinations, nb_destinations, addresses[1]))) {
             continue;
         }
 
         // 3. check if the ports match (taking the direction in account)
         // 3.1. source ports
-        if (!check_port_match(rule->source_ports, rule->nb_source_ports,
-                              ports[0])) {
+        if (direction == Forward &&
+            !check_port_match(source_ports, nb_source_ports, ports[0])) {
+            continue;
+        }
+        if (direction == Both_directions &&
+            (!check_port_match(source_ports, nb_source_ports, ports[0]) ||
+             !check_port_match(source_ports, nb_source_ports, ports[1]))) {
             continue;
         }
         // 3.2. destination ports
-        if (!check_port_match(rule->destination_ports,
-                              rule->nb_destination_ports, ports[1])) {
+        if (direction == Forward &&
+            !check_port_match(destination_ports, nb_destination_ports,
+                              ports[1])) {
+            continue;
+        }
+        if (direction == Both_directions &&
+            (!check_port_match(destination_ports, nb_destination_ports,
+                               ports[0]) ||
+             !check_port_match(destination_ports, nb_destination_ports,
+                               ports[1]))) {
             continue;
         }
 
@@ -323,6 +372,9 @@ void rules_matcher(Rule *rules, int count, Packet *packet) {
         }
 
         // 5. write to syslog
+        char message[150] = "packet matches rule";
+        get_rule_msg(rule, message);
+        write_syslog(message);
     }
 }
 
