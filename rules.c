@@ -410,7 +410,8 @@ void get_rule_action(Rule *rule, Tokens *tokens, int *i_ptr) {
 void get_rule_protocol(Rule *rule, Tokens *tokens, int *i_ptr) {
     if (strcmp(tokens->tokens[*i_ptr], "ethernet") == 0) {
         rule->protocol = Ethernet;
-    } else if (strcmp(tokens->tokens[*i_ptr], "ipv4") == 0) {
+    } else if (strcmp(tokens->tokens[*i_ptr], "ipv4") == 0 ||
+               strcmp(tokens->tokens[*i_ptr], "ip") == 0) {
         rule->protocol = Ipv4;
     } else if (strcmp(tokens->tokens[*i_ptr], "ipv6") == 0) {
         rule->protocol = Ipv6;

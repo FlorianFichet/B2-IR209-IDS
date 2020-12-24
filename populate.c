@@ -256,10 +256,11 @@ void populate_tcp_segment(Packet *packet) {
     size_t size_ethernet = SIZE_ETHERNET_HEADER;
     size_t size_network = get_network_protocol_header_length(packet);
     size_t size_transport = get_transport_protocol_header_length(packet);
+    uint32_t packet_length = packet->packet_header->caplen;
 
     // NOTE: it's also possible to use the: ipv4->total_length to check whether
     // there is an application layer but it's not "protocol independant"
-    if (packet->packet_length > size_ethernet + size_network + size_transport) {
+    if (packet_length > size_ethernet + size_network + size_transport) {
         // NOTE: one of the ports may not be the protocol's port,
         //       that's why we have to test both
         packet->application_protocol =

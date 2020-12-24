@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <syslog.h>
+#include <time.h>
 
 #include "populate.h"
 #include "rules.h"
@@ -11,9 +12,13 @@
 #define FILE_NOT_OPENED_ERROR 3
 
 
+#define TIME_BUFFER_LENGTH 30
+
+
 struct ids_arguments {
     bool print_help;
     bool print_packet_headers;
+    bool print_logs;
     char *device;
     char *rules_file_name;
     int total_packet_count;
@@ -24,16 +29,20 @@ struct user_args_packet_handler {
     bool print_packet_headers;
     int nb_rules;
     Rule *rules;
+    IdsArguments ids_arguments;
 } typedef UserArgsPacketHandler;
 
 
-void write_syslog(char *message) {
+void write_syslog(char *message, Packet *packet) {
     // NOTE: options are coded on an int
     // LOG_CONS   = 0x02 = log on the console if errors in sending
     // LOG_PID    = 0x01 = log the pid with each message
     // LOG_NDELAY = 0x08 = don't delay open
     openlog("Ids", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL1);
+
+    // LOG_ALERT = action must be taken immediately
     syslog(LOG_ALERT, message);
+
     closelog();
 }
 
@@ -42,6 +51,7 @@ IdsArguments parse_arguments(int argc, char *argv[]) {
     IdsArguments arguments = {
         .print_help = false,
         .print_packet_headers = false,
+        .print_logs = false,
         .device = "eth0",
         .rules_file_name = "/etc/ids/ids.rules",
         .total_packet_count = 1,
@@ -55,6 +65,8 @@ IdsArguments parse_arguments(int argc, char *argv[]) {
             arguments.print_help = true;
         } else if (strcmp(s, "-p") == 0 || strcmp(s, "--print-headers") == 0) {
             arguments.print_packet_headers = true;
+        } else if (strcmp(s, "--print-logs") == 0) {
+            arguments.print_logs = true;
         } else if (strcmp(s, "-d") == 0 || strcmp(s, "--device") == 0) {
             arguments.device = argv[++i];
         } else if (strcmp(s, "-r") == 0 || strcmp(s, "--rules") == 0) {
@@ -91,6 +103,25 @@ void print_help() {
     printf(
         "-n <nb_packets> --nb-packets <nb_packets> "
         "Number of packets to analyse\n");
+}
+void print_logs(char *message, Packet *packet) {
+    // get the time
+    time_t global_time = packet->packet_header->ts.tv_sec;
+    struct tm *local_time = localtime(&global_time);
+    int milliseconds = packet->packet_header->ts.tv_usec / 1000;
+    int microseconds = packet->packet_header->ts.tv_usec % 1000;
+
+    char date_stamp[TIME_BUFFER_LENGTH];
+    char time_stamp[TIME_BUFFER_LENGTH];
+    char date_time[4 * TIME_BUFFER_LENGTH];
+
+    // put the time to string format
+    strftime(date_stamp, TIME_BUFFER_LENGTH, "%F (%a)", local_time);
+    strftime(time_stamp, TIME_BUFFER_LENGTH, "%H:%M:%S", local_time);
+
+    sprintf(date_time, "%s %s %d ms %d µs", date_stamp, time_stamp,
+            milliseconds, microseconds);
+    printf("log : %s : %s\n", date_time, message);
 }
 
 
@@ -217,6 +248,33 @@ bool check_ipv4_match(RuleIpv4 *addresses, int nb_rules_ip, uint32_t ip) {
 
     return ips_match;
 }
+bool check_addresses_match_with_direction(Rule *rule, uint32_t addresses[2]) {
+    // NOTE: the local copy here is to make the code simpler by avoiding to
+    // write: "rule->x". However, this should be optimized by the compiler.
+    RuleDirection direction = rule->direction;
+    RuleIpv4 *sources = rule->sources;
+    RuleIpv4 *destinations = rule->destinations;
+    int nb_sources = rule->nb_sources;
+    int nb_destinations = rule->nb_destinations;
+
+    // 1. direction forward (->)
+    if (direction == Forward &&
+        (!check_ipv4_match(sources, nb_sources, addresses[0]) ||
+         !check_ipv4_match(destinations, nb_destinations, addresses[1]))) {
+        return false;
+    }
+
+    // 2. both directions (<>)
+    if (direction == Both_directions &&
+        (!check_ipv4_match(sources, nb_sources, addresses[0]) ||
+         !check_ipv4_match(sources, nb_sources, addresses[1])) &&
+        (!check_ipv4_match(destinations, nb_destinations, addresses[0]) ||
+         !check_ipv4_match(destinations, nb_destinations, addresses[1]))) {
+        return false;
+    }
+
+    return true;
+}
 bool check_port_match(RulePort *ports, int nb_rules_port, uint16_t port) {
     bool ports_match = false;
 
@@ -235,6 +293,35 @@ bool check_port_match(RulePort *ports, int nb_rules_port, uint16_t port) {
 
     return ports_match;
 }
+bool check_ports_match_with_direction(Rule *rule, uint16_t ports[2]) {
+    // NOTE: the local copy here is to make the code simpler by avoiding to
+    // write: "rule->x". However, this should be optimized by the compiler.
+    RuleDirection direction = rule->direction;
+    RulePort *source_ports = rule->source_ports;
+    RulePort *destination_ports = rule->destination_ports;
+    int nb_source_ports = rule->nb_source_ports;
+    int nb_destination_ports = rule->nb_destination_ports;
+
+    // 1. direction forward (->)
+    if (direction == Forward &&
+        (!check_port_match(source_ports, nb_source_ports, ports[0]) ||
+         !check_port_match(destination_ports, nb_destination_ports,
+                           ports[1]))) {
+        return false;
+    }
+
+    // 2. both directions (<>)
+    if (direction == Both_directions &&
+        (!check_port_match(source_ports, nb_source_ports, ports[0]) ||
+         !check_port_match(source_ports, nb_source_ports, ports[1])) &&
+        (!check_port_match(destination_ports, nb_destination_ports, ports[0]) ||
+         !check_port_match(destination_ports, nb_destination_ports,
+                           ports[1]))) {
+        return false;
+    }
+
+    return true;
+}
 bool check_similarity_content(char *content, char *s) {
     size_t i = 0;
     while (content[i] != '\0') {
@@ -249,9 +336,10 @@ bool check_similarity_content(char *content, char *s) {
 }
 bool check_option_content(char *content, Packet *packet) {
     char *s = (char *)packet->data_link_header;
+    uint32_t packet_length = packet->packet_header->caplen;
 
     size_t i = 0;
-    while (i < packet->packet_length) {
+    while (i < packet_length) {
         char c = s[i];
         if (c == content[0] && check_similarity_content(content, s + i)) {
             return true;
@@ -261,6 +349,18 @@ bool check_option_content(char *content, Packet *packet) {
     }
 
     return false;
+}
+bool check_options_match(Rule *rule, Packet *packet) {
+    for (size_t i = 0; i < rule->nb_options; i++) {
+        RuleOption *option = &(rule->options[i]);
+        // if the "content" is found in the packet, the option match
+        if (strcmp(option->keyword, "content") == 0 &&
+            !check_option_content(option->settings[0], packet)) {
+            return false;
+        }
+    }
+
+    return true;
 }
 void get_rule_msg(Rule *rule, char *message) {
     RuleOption *options = rule->options;
@@ -274,7 +374,8 @@ void get_rule_msg(Rule *rule, char *message) {
 }
 
 
-void rules_matcher(Rule *rules, int count, Packet *packet) {
+void rules_matcher(Rule *rules, int count, Packet *packet,
+                   UserArgsPacketHandler *args) {
     // transform the packet's data to "rule's data"
     RuleProtocol protocols[4] = {
         No_Protocol,
@@ -300,81 +401,24 @@ void rules_matcher(Rule *rules, int count, Packet *packet) {
         // write things such as: "rules[num_rule].x". However, this should be
         // optimized by the compiler.
         Rule *rule = rules + num_rule;
-        RuleDirection direction = rule->direction;
-        RuleIpv4 *sources = rule->sources;
-        RuleIpv4 *destinations = rule->destinations;
-        int nb_sources = rule->nb_sources;
-        int nb_destinations = rule->nb_destinations;
-        RulePort *source_ports = rule->source_ports;
-        RulePort *destination_ports = rule->destination_ports;
-        int nb_source_ports = rule->nb_source_ports;
-        int nb_destination_ports = rule->nb_destination_ports;
 
-        // 1. check if the protocols match
-        if (!check_protocol_match(rule, protocols)) {
+        // 1. check if the packet matches the rule
+        if (!check_protocol_match(rule, protocols) ||
+            !check_addresses_match_with_direction(rule, addresses) ||
+            !check_ports_match_with_direction(rule, ports) ||
+            !check_options_match(rule, packet)) {
             continue;
         }
 
-        // 2 check if the addresses match (ONLY IPV4 FOR THE MOMENT)
-        // 2.1. source addresses
-        if (direction == Forward &&
-            !check_ipv4_match(sources, nb_sources, addresses[0])) {
-            continue;
-        }
-        if (direction == Both_directions &&
-            (!check_ipv4_match(sources, nb_sources, addresses[0]) ||
-             !check_ipv4_match(sources, nb_sources, addresses[1]))) {
-            continue;
-        }
-        // 2.2. destination addresses
-        if (direction == Forward &&
-            !check_ipv4_match(destinations, nb_destinations, addresses[1])) {
-            continue;
-        }
-        if (direction == Both_directions &&
-            (!check_ipv4_match(destinations, nb_destinations, addresses[0]) ||
-             !check_ipv4_match(destinations, nb_destinations, addresses[1]))) {
-            continue;
-        }
-
-        // 3. check if the ports match (taking the direction in account)
-        // 3.1. source ports
-        if (direction == Forward &&
-            !check_port_match(source_ports, nb_source_ports, ports[0])) {
-            continue;
-        }
-        if (direction == Both_directions &&
-            (!check_port_match(source_ports, nb_source_ports, ports[0]) ||
-             !check_port_match(source_ports, nb_source_ports, ports[1]))) {
-            continue;
-        }
-        // 3.2. destination ports
-        if (direction == Forward &&
-            !check_port_match(destination_ports, nb_destination_ports,
-                              ports[1])) {
-            continue;
-        }
-        if (direction == Both_directions &&
-            (!check_port_match(destination_ports, nb_destination_ports,
-                               ports[0]) ||
-             !check_port_match(destination_ports, nb_destination_ports,
-                               ports[1]))) {
-            continue;
-        }
-
-        // 4. check if the options match
-        for (size_t i = 0; i < rule->nb_options; i++) {
-            RuleOption *option = &(rule->options[i]);
-            if (strcmp(option->keyword, "content") == 0 &&
-                check_option_content(option->settings[0], packet)) {
-                continue;
-            }
-        }
-
-        // 5. write to syslog
-        char message[150] = "packet matches rule";
+        // 2. write to syslog
+        char message[LENGTH_RULE_MESSAGE] = "packet matches rule";
         get_rule_msg(rule, message);
-        write_syslog(message);
+        write_syslog(message, packet);
+
+        // 3. if the user wants to print log, print it
+        if (args->ids_arguments.print_logs) {
+            print_logs(message, packet);
+        }
     }
 }
 
@@ -385,7 +429,7 @@ void packet_handler(u_char *user_args, const struct pcap_pkthdr *packet_header,
 
     // populate the packet
     Packet packet;
-    packet.packet_length = packet_header->caplen;
+    packet.packet_header = (struct pcap_pkthdr *)packet_header;
     populate_packet((void *)packet_body, &packet);
 
     // print the packet
@@ -394,7 +438,7 @@ void packet_handler(u_char *user_args, const struct pcap_pkthdr *packet_header,
     }
 
     // check if the packet matches any rule
-    rules_matcher(args->rules, args->nb_rules, &packet);
+    rules_matcher(args->rules, args->nb_rules, &packet, args);
 
     // free the packet's application header
     if (packet.application_header != NULL) {
@@ -437,6 +481,7 @@ int main(int argc, char *argv[]) {
         .print_packet_headers = arguments.print_packet_headers,
         .nb_rules = nb_rules,
         .rules = rules,
+        .ids_arguments = arguments,
     };
     pcap_loop(handle, arguments.total_packet_count, packet_handler,
               (u_char *)&user_args);

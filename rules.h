@@ -1,6 +1,9 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#define LENGTH_RULE_MESSAGE 150
+
+
 enum rule_action {
     Alert,
     Pass,

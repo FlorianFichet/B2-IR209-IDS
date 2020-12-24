@@ -141,7 +141,7 @@ struct packet {
     // NOTE: the application layer's header is the only one that need to be
     // allocated, it's because it doesn't have a fixed size.
 
-    uint32_t packet_length;
+    struct pcap_pkthdr *packet_header;
 } typedef Packet;
 
 
