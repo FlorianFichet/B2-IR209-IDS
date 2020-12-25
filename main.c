@@ -231,25 +231,20 @@ bool check_protocol_match(Rule *rule, RuleProtocol *protocols) {
 bool check_ipv4_match(RuleIpv4 *addresses, int nb_rules_ip, uint32_t ip) {
     bool ips_match = false;
 
+    // NOTE: no break because we have to do all the list in case there
+    // is a negation
     for (size_t i = 0; i < nb_rules_ip; i++) {
-        // NOTE: no break because we have to do all the list in case there
-        // is a negation
-        if (addresses[i].ip == -1) {  // -1 => any
-            // !negation => match
+        // e.g. 255.255.255.255/24
+        //  a. inverse_netmask = 8
+        //  b. host_ip = 255.255.255.255 % (1 << 8)
+        //             = 255.255.255.255 % 256
+        //             =   0.  0.  0.255
+        //  c. network_ip = 255.255.255.0
+        uint32_t inverse_netmask = 32 - addresses[i].netmask;
+        uint32_t host_ip = ip % (1 << inverse_netmask);
+        uint32_t network_ip = ip - host_ip;
+        if (network_ip == addresses[i].ip) {
             ips_match = !addresses[i].negation;
-        } else {
-            // e.g. 255.255.255.255/24
-            //  a. inverse_netmask = 8
-            //  b. host_ip = 255.255.255.255 % (1 << 8)
-            //             = 255.255.255.255 % 256
-            //             =   0.  0.  0.255
-            //  c. network_ip = 255.255.255.0
-            uint32_t inverse_netmask = 32 - addresses[i].netmask;
-            uint32_t host_ip = ip % (1 << inverse_netmask);
-            uint32_t network_ip = ip - host_ip;
-            if (network_ip == addresses[i].ip) {
-                ips_match = !addresses[i].negation;
-            }
         }
     }
 
