@@ -146,3 +146,4 @@ struct packet {
 
 void populate_packet(void *body, Packet *packet);
 void print_packet_headers(Packet *packet);
+void print_packet_data(Packet *packet);

@@ -20,6 +20,19 @@ uint32_t convert_endianess_32bits(uint32_t nb) {
 }
 
 
+size_t get_data_link_protocol_header_length(Packet *packet) {
+    size_t size_data_link = 0;
+
+    switch (packet->data_link_protocol) {
+        case PP_Ethernet:
+            size_data_link = SIZE_ETHERNET_HEADER;
+            break;
+        default:
+            break;
+    }
+
+    return size_data_link;
+}
 size_t get_network_protocol_header_length(Packet *packet) {
     size_t size_network = 0;
 
@@ -255,14 +268,14 @@ void populate_tcp_segment(Packet *packet) {
     // check if there is an application layer by comparing the length of the
     // headers with the total size of the packet, if there is an application
     // layer add the protocol and the header's address
-    size_t size_ethernet = SIZE_ETHERNET_HEADER;
+    size_t size_data_link = get_data_link_protocol_header_length(packet);
     size_t size_network = get_network_protocol_header_length(packet);
     size_t size_transport = get_transport_protocol_header_length(packet);
     uint32_t packet_length = packet->packet_header->caplen;
 
     // NOTE: it's also possible to use the: ipv4->total_length to check whether
     // there is an application layer but it's not "protocol independant"
-    if (packet_length > size_ethernet + size_network + size_transport) {
+    if (packet_length > size_data_link + size_network + size_transport) {
         // NOTE: one of the ports may not be the protocol's port,
         //       that's why we have to test both
         packet->application_protocol =
@@ -289,14 +302,14 @@ void populate_udp_segment(Packet *packet) {
     // check if there is an application layer by comparing the length of the
     // headers with the total size of the packet, if there is an application
     // layer add the protocol and the header's address
-    size_t size_ethernet = SIZE_ETHERNET_HEADER;
+    size_t size_data_link = get_data_link_protocol_header_length(packet);
     size_t size_network = get_network_protocol_header_length(packet);
     size_t size_transport = get_transport_protocol_header_length(packet);
     uint32_t packet_length = packet->packet_header->caplen;
 
     // NOTE: it's also possible to use the: ipv4->total_length to check whether
     // there is an application layer but it's not "protocol independant"
-    if (packet_length > size_ethernet + size_network + size_transport) {
+    if (packet_length > size_data_link + size_network + size_transport) {
         // NOTE: one of the ports may not be the protocol's port,
         //       that's why we have to test both
         packet->application_protocol =
@@ -565,5 +578,31 @@ void print_packet_headers(Packet *packet) {
             break;
         default:
             break;
+    }
+}
+void print_data(void *start, size_t size) {
+    for (size_t i = 0; i < size; i++) {
+        printf("%c", *(char *)(start + i));
+    }
+    printf("\n");
+}
+void print_packet_data(Packet *packet) {
+    // NOTE: the data could be transported both by a transport protocol (such as
+    // UDP) or by an application protocol (such as HTTP)
+    if (packet->application_protocol == PP_Http) {
+        void *data = ((HttpData *)packet->application_header)->data;
+        size_t length =
+            ((HttpData *)packet->application_header)->content_length;
+        print_data(data, length);
+        return;
+    }
+    if (packet->transport_protocol != PP_None) {
+        void *data = packet->transport_header +
+                     get_transport_protocol_header_length(packet);
+        size_t length = packet->packet_header->caplen -
+                        get_transport_protocol_header_length(packet) -
+                        get_network_protocol_header_length(packet) -
+                        get_data_link_protocol_header_length(packet);
+        print_data(data, length);
     }
 }

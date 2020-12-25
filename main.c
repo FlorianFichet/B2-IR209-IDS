@@ -18,6 +18,7 @@
 struct ids_arguments {
     bool print_help;
     bool print_packet_headers;
+    bool print_all;
     bool print_logs;
     char *device;
     char *rules_file_name;
@@ -26,7 +27,6 @@ struct ids_arguments {
 
 
 struct user_args_packet_handler {
-    bool print_packet_headers;
     int nb_rules;
     Rule *rules;
     IdsArguments ids_arguments;
@@ -51,6 +51,7 @@ IdsArguments parse_arguments(int argc, char *argv[]) {
     IdsArguments arguments = {
         .print_help = false,
         .print_packet_headers = false,
+        .print_all = false,
         .print_logs = false,
         .device = "eth0",
         .rules_file_name = "/etc/ids/ids.rules",
@@ -65,6 +66,8 @@ IdsArguments parse_arguments(int argc, char *argv[]) {
             arguments.print_help = true;
         } else if (strcmp(s, "-p") == 0 || strcmp(s, "--print-headers") == 0) {
             arguments.print_packet_headers = true;
+        } else if (strcmp(s, "--print-all") == 0) {
+            arguments.print_all = true;
         } else if (strcmp(s, "--print-logs") == 0) {
             arguments.print_logs = true;
         } else if (strcmp(s, "-d") == 0 || strcmp(s, "--device") == 0) {
@@ -443,10 +446,15 @@ void packet_handler(u_char *user_args, const struct pcap_pkthdr *packet_header,
     packet.packet_header = (struct pcap_pkthdr *)packet_header;
     populate_packet((void *)packet_body, &packet);
 
-    // print the packet
-    if (args->print_packet_headers) {
+    // print the packet headers/data
+    if (args->ids_arguments.print_packet_headers ||
+        args->ids_arguments.print_all) {
         print_packet_headers(&packet);
     }
+    if (args->ids_arguments.print_all) {
+        print_packet_data(&packet);
+    }
+
 
     // check if the packet matches any rule
     rules_matcher(args->rules, args->nb_rules, &packet, args);
@@ -490,7 +498,6 @@ int main(int argc, char *argv[]) {
 
     // handle the packets
     UserArgsPacketHandler user_args = {
-        .print_packet_headers = arguments.print_packet_headers,
         .nb_rules = nb_rules,
         .rules = rules,
         .ids_arguments = arguments,
