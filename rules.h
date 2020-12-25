@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdint.h>
 
 #define LENGTH_RULE_MESSAGE 150
 
@@ -35,7 +36,7 @@ enum rule_protocol {
 } typedef RuleProtocol;
 struct rule_ipv4 {
     bool negation;
-    int ip;        // -1 => any
+    uint32_t ip;
     char netmask;  // CIDR notation (ip/xx)
 } typedef RuleIpv4;
 struct rule_port {

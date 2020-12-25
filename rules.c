@@ -164,7 +164,7 @@ void copy_string_in_heap(char *string, char **copy) {
 
 // get an ip int from a string representation, e.g. "255.255.255.255/24"
 // => *ip_int = 4294967295, *netmask = 24
-int get_ip_and_netmask_from_str(char *ip_str, int *ip_int, char *netmask) {
+int get_ip_and_netmask_from_str(char *ip_str, uint32_t *ip_int, char *netmask) {
     char buffer[4] = "";
     fill_in_char_buffer(buffer, 4, '\0');
     int num_byte = 3;  // 3-0
@@ -297,9 +297,7 @@ void get_ip_any(RuleIpv4 **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr) {
 
     // set the ip's fields
     ip->negation = false;
-    ip->ip = -1;  // -1 => any
-
-    // NOTE: we don't need to set a netmask because it's "any" ip
+    ip->netmask = 0; // 0 => any ip
 }
 void get_port_any(RulePort **port_ptr, int *nb_ports, Tokens *tokens,
                   int *i_ptr) {
