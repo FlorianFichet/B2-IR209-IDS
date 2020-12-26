@@ -10,10 +10,9 @@
 #define SIZE_IPV4_ADDRESS 4
 #define SIZE_ETHERNET_HEADER 14
 #define SIZE_UDP_HEADER 8
-
+#define SIZE_TLS_HEADER 5
 
 #define IPV4_ADDR_LEN_STR 16
-
 
 #define ARP_PROTOCOL 2054
 #define IPV4_PROTOCOL 2048
@@ -31,7 +30,6 @@
 
 #define IP_OFFSET_VALUE(ip) (((ip)->ip_offset_and_flags) & (IP_OFFSET_MASK))
 #define IP_FLAG_VALUE(ip, mask) ((((ip)->ip_offset_and_flags) & (mask)) ? 1 : 0)
-
 
 #define TH_FIN 0x01
 #define TH_SYN 0x02
@@ -103,7 +101,6 @@ struct udp_segment {
     u_short length;
     u_short checksum;
 } typedef UdpSegment;
-
 struct http_data {
     bool is_response;
     HttpRequestMethod request_method;  // only for requests
@@ -112,6 +109,13 @@ struct http_data {
     void *header;
     void *data;
 } typedef HttpData;
+struct tls_data {
+    u_char content_type;
+    u_short version;
+    u_short length;
+    void *header;
+    void *data;
+} __attribute__((packed)) typedef TlsData;
 
 
 enum populate_protocol {
@@ -124,7 +128,7 @@ enum populate_protocol {
     PP_Tcp,
     PP_Udp,
     PP_Http,
-    PP_Https,
+    PP_Tls,
 } typedef PopulateProtocol;
 
 struct packet {

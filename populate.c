@@ -90,7 +90,7 @@ PopulateProtocol get_application_protocol_from_port(uint32_t port) {
         case HTTP_PORT:
             return PP_Http;
         case HTTPS_PORT:
-            return PP_Https;
+            return PP_Tls;
         default:
             return PP_None;
     }
@@ -294,10 +294,10 @@ void populate_udp_segment(Packet *packet) {
     UdpSegment *udp = packet->transport_header;
 
     // convert endianness
-    convert_endianess_16bits(udp->port_source);
-    convert_endianess_16bits(udp->port_destination);
-    convert_endianess_16bits(udp->length);
-    convert_endianess_16bits(udp->checksum);
+    udp->port_source = convert_endianess_16bits(udp->port_source);
+    udp->port_destination = convert_endianess_16bits(udp->port_destination);
+    udp->length = convert_endianess_16bits(udp->length);
+    udp->checksum = convert_endianess_16bits(udp->checksum);
 
     // check if there is an application layer by comparing the length of the
     // headers with the total size of the packet, if there is an application
@@ -342,6 +342,25 @@ void populate_http_data(Packet *packet) {
         http_data->content_length = 0;
     }
 }
+void populate_tls_data(Packet *packet) {
+    // 1. copy the location of the tls header before malloc a TlsData struct
+    void *tls_header = packet->application_header;
+
+    // 2. malloc a tls struct
+    packet->application_header = malloc(sizeof(TlsData));
+    TlsData *tls = (TlsData *)packet->application_header;
+
+    // 3. copy the data (only possible because tls' header is fixed size)
+    (*tls) = *(TlsData *)tls_header;
+
+    // 4. get the header's and the data's addresses
+    tls->header = tls_header;
+    tls->data = tls_header + SIZE_TLS_HEADER;
+
+    // 5. convert endianness
+    tls->version = convert_endianess_16bits(tls->version);
+    tls->length = convert_endianess_16bits(tls->length);
+}
 
 
 void populate_data_link_layer(Packet *packet) {
@@ -378,6 +397,9 @@ void populate_application_layer(Packet *packet) {
     switch (packet->application_protocol) {
         case PP_Http:
             populate_http_data(packet);
+            break;
+        case PP_Tls:
+            populate_tls_data(packet);
             break;
         default:
             break;
@@ -538,6 +560,15 @@ void print_http_data_header(HttpData *http) {
 
     printf("\n");
 }
+void print_tls_data_header(TlsData *tls) {
+    printf("tls header:\n");
+    printf("    content type: %u\n", tls->content_type);
+    printf("    version: %u\n", tls->version);
+    printf("    content length: %u\n", tls->length);
+    for (size_t i = 0; i < 10; i++) {
+        printf("%2x ", *(char*)(tls->header + i));
+    }
+}
 void print_packet_headers(Packet *packet) {
     static int i = 0;
     printf("\nPacket n°%d:\n", ++i);
@@ -574,27 +605,40 @@ void print_packet_headers(Packet *packet) {
         case PP_Http:
             print_http_data_header(packet->application_header);
             break;
-        case PP_Https:
+        case PP_Tls:
+            print_tls_data_header(packet->application_header);
             break;
         default:
             break;
     }
 }
 void print_data(void *start, size_t size) {
+    printf("data:\n");
     for (size_t i = 0; i < size; i++) {
         printf("%c", *(char *)(start + i));
     }
     printf("\n");
 }
 void print_packet_data(Packet *packet) {
+    void *data;
+    size_t length;
     // NOTE: the data could be transported both by a transport protocol (such as
     // UDP) or by an application protocol (such as HTTP)
-    if (packet->application_protocol == PP_Http) {
-        void *data = ((HttpData *)packet->application_header)->data;
-        size_t length =
-            ((HttpData *)packet->application_header)->content_length;
-        print_data(data, length);
-        return;
+    switch (packet->application_protocol) {
+        case PP_Http:;
+            HttpData *http = (HttpData *)packet->application_header;
+            data = http->data;
+            length = http->content_length;
+            print_data(data, length);
+            return;
+        case PP_Tls:;
+            TlsData *tls = (TlsData *)packet->application_header;
+            data = tls->data;
+            length = tls->length;
+            print_data(data, length);
+            return;
+        default:
+            break;
     }
     if (packet->transport_protocol != PP_None) {
         void *data = packet->transport_header +
