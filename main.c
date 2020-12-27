@@ -186,6 +186,9 @@ void get_rule_protocols_from_packet(RuleProtocol *protocols, Packet *packet) {
         case PP_Http:
             protocols[3] = RP_Http;
             break;
+        case PP_Tls:
+            protocols[3] = RP_Tls;
+            break;
         default:
             protocols[3] = RP_No_Protocol;
             break;
@@ -235,15 +238,21 @@ bool check_ipv4_match(RuleIpv4 *addresses, int nb_rules_ip, uint32_t ip) {
     // is a negation
     for (size_t i = 0; i < nb_rules_ip; i++) {
         // e.g. 255.255.255.255/24
-        //  a. inverse_netmask = 8
-        //  b. host_ip = 255.255.255.255 % (1 << 8)
-        //             = 255.255.255.255 % 256
-        //             =   0.  0.  0.255
-        //  c. network_ip = 255.255.255.0
-        uint32_t inverse_netmask = 32 - addresses[i].netmask;
-        uint32_t host_ip = ip % (1 << inverse_netmask);
-        uint32_t network_ip = ip - host_ip;
-        if (network_ip == addresses[i].ip) {
+        //  a. wildcard_cidr = 8
+        //  b. wildcard = (1 << 8) - 1
+        //             = 0.0.1.0 - 1
+        //             = 0.0.0.255
+        //  c. netmask = -1 - wildcard
+        //             = 255.255.255.255 - 255
+        //             = 255.255.255.0
+        uint32_t wildcard_cidr = 32 - addresses[i].netmask;
+        uint32_t wildcard = (1 << wildcard_cidr) - 1;
+        uint32_t netmask = -1 - wildcard;
+        // NOTE: we need to check the wildcard_cidr because shifting by a number
+        // greater or equal to the number of bits in the type is undefined
+        // behavior (uint32_t is coded on 32-bits)
+        if (wildcard_cidr == 32 ||
+            (ip & netmask) == (addresses[i].ip & netmask)) {
             ips_match = !addresses[i].negation;
         }
     }
@@ -285,11 +294,13 @@ bool check_port_match(RulePort *ports, int nb_rules_port, uint16_t port) {
         // is a negation
 
         // end_port = -1 => [start_port, ...]
-        if (ports[i].end_port == -1 && port >= ports[i].start_port) {
-            // !negation => match
-            ports_match = !ports[i].negation;
-        } else if (port >= ports[i].start_port && port <= ports[i].end_port) {
-            ports_match = ports[i].negation;
+        RulePort rule_port = ports[i];
+        if (rule_port.end_port == -1 && port >= rule_port.start_port) {
+            // we're looking for a match, not a negation (!negation => match)
+            ports_match = !rule_port.negation;
+        } else if (port >= rule_port.start_port && port <= rule_port.end_port) {
+            // we're looking for a match, not a negation (!negation => match)
+            ports_match = !rule_port.negation;
         }
     }
 

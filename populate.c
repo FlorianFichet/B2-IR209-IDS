@@ -565,9 +565,6 @@ void print_tls_data_header(TlsData *tls) {
     printf("    content type: %u\n", tls->content_type);
     printf("    version: %u\n", tls->version);
     printf("    content length: %u\n", tls->length);
-    for (size_t i = 0; i < 10; i++) {
-        printf("%2x ", *(char*)(tls->header + i));
-    }
 }
 void print_packet_headers(Packet *packet) {
     static int i = 0;
@@ -613,7 +610,6 @@ void print_packet_headers(Packet *packet) {
     }
 }
 void print_data(void *start, size_t size) {
-    printf("data:\n");
     for (size_t i = 0; i < size; i++) {
         printf("%c", *(char *)(start + i));
     }
