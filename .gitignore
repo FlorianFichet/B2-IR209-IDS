@@ -4,3 +4,11 @@ ids
 *.out
 *.o
 *.exe
+
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.lof
+*.gz
+*.toc

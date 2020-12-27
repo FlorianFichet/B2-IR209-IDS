@@ -164,7 +164,8 @@ void copy_string_in_heap(char *string, char **copy) {
 
 // get an ip int from a string representation, e.g. "255.255.255.255/24"
 // => *ip_int = 4294967295, *netmask = 24
-int get_ip_and_netmask_from_str(char *ip_str, int *ip_int, char *netmask) {
+void get_ip_and_netmask_from_str(char *ip_str, uint32_t *ip_int,
+                                 char *netmask) {
     char buffer[4] = "";
     fill_in_char_buffer(buffer, 4, '\0');
     int num_byte = 3;  // 3-0
@@ -194,6 +195,7 @@ int get_ip_and_netmask_from_str(char *ip_str, int *ip_int, char *netmask) {
             buffer[index_buffer] = ip_str[i];
             index_buffer++;
         }
+        i++;
     }
     // get the number from the buffer
     int byte = atoi(buffer);
@@ -210,8 +212,6 @@ int get_ip_and_netmask_from_str(char *ip_str, int *ip_int, char *netmask) {
         // had a value of 32 (CIDR notation)
         (*netmask) = 32;
     }
-
-    return 0;
 }
 void get_port_from_str(RulePort *port, Tokens *tokens, int *i_ptr) {
     // 1. get start_port
@@ -268,7 +268,7 @@ void inverse_negation_ip(RuleIpv4 **ip_ptr, int *nb_ip, Tokens *tokens,
     // 3. loop through the ips (start_ip -> *nb_ip) and inverse their negation
     for (int j = start_ip; j < *nb_ip; j++) {
         // inverse the ip's negation
-        RuleIpv4 *ip = (*ip_ptr) + j * sizeof(RuleIpv4);
+        RuleIpv4 *ip = (*ip_ptr) + j;
         ip->negation = !ip->negation;
     }
 }
@@ -285,7 +285,7 @@ void inverse_negation_port(RulePort **port_ptr, int *nb_ports, Tokens *tokens,
     // negation
     for (int j = start_port; j < *nb_ports; j++) {
         // inverse the port's negation
-        RulePort *port = (*port_ptr) + j * sizeof(RulePort);
+        RulePort *port = (*port_ptr) + j;
         port->negation = !port->negation;
     }
 }
@@ -297,9 +297,8 @@ void get_ip_any(RuleIpv4 **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr) {
 
     // set the ip's fields
     ip->negation = false;
-    ip->ip = -1;  // -1 => any
-
-    // NOTE: we don't need to set a netmask because it's "any" ip
+    ip->ip = 0;
+    ip->netmask = 0;  // 0 => any ip
 }
 void get_port_any(RulePort **port_ptr, int *nb_ports, Tokens *tokens,
                   int *i_ptr) {
@@ -317,11 +316,13 @@ void get_port_any(RulePort **port_ptr, int *nb_ports, Tokens *tokens,
 }
 void get_ip_list(RuleIpv4 **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr) {
     // loop until we get the closing ']'
-    while (strcmp(tokens->tokens[*i_ptr], "]") != 0) {
+    char *s = tokens->tokens[*i_ptr];
+    while (strcmp(s, "]") != 0) {
         // 1. increase *i_ptr, to pass the '[' or the ','
         (*i_ptr)++;
         // 2. call the function recursively to get the ip
         get_rules_ip(ip_ptr, nb_ip, tokens, i_ptr);
+        s = tokens->tokens[*i_ptr];
     }
 
     // for the closing ']'
@@ -341,35 +342,37 @@ void get_port_list(RulePort **port_ptr, int *nb_ports, Tokens *tokens,
     (*i_ptr)++;
 }
 void get_ip_address(RuleIpv4 **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr) {
-    // 1. increment *i_ptr, add an ip to the list
-    (*i_ptr)++;
+    // 1. add an ip to the list
     increase_nb_ip(ip_ptr, nb_ip);
     RuleIpv4 *new_ip = &(*ip_ptr)[(*nb_ip) - 1];
+    new_ip->negation = false;
+    new_ip->ip = 0;
+    new_ip->netmask = 0;
 
     // 2. get the ip and the netmask
-    new_ip->negation = false;
-    get_ip_and_netmask_from_str(tokens->tokens[*i_ptr], &new_ip->ip,
-                                &new_ip->netmask);
+    char *s = tokens->tokens[*i_ptr];
+    get_ip_and_netmask_from_str(s, &new_ip->ip, &new_ip->netmask);
+    (*i_ptr)++;
 }
 void get_port_address(RulePort **port_ptr, int *nb_ports, Tokens *tokens,
                       int *i_ptr) {
-    // 1. increment *i_ptr, add a port to the list
-    (*i_ptr)++;
+    // 1. add a port to the list
     increase_nb_ports(port_ptr, nb_ports);
-    RulePort *port = (*port_ptr) + ((*nb_ports) - 1) * sizeof(RulePort);
+    RulePort *port = (*port_ptr) + ((*nb_ports) - 1);
+    port->negation = false;
 
     // 2. get the port
-    port->negation = false;
     get_port_from_str(port, tokens, i_ptr);
 }
 
 
 void get_rules_ip(RuleIpv4 **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr) {
-    if (strcmp(tokens->tokens[*i_ptr], "!") == 0) {
+    char *s = tokens->tokens[*i_ptr];
+    if (strcmp(s, "!") == 0) {
         inverse_negation_ip(ip_ptr, nb_ip, tokens, i_ptr);
-    } else if (strcmp(tokens->tokens[*i_ptr], "any") == 0) {
+    } else if (strcmp(s, "any") == 0) {
         get_ip_any(ip_ptr, nb_ip, tokens, i_ptr);
-    } else if (strcmp(tokens->tokens[*i_ptr], "[") == 0) {
+    } else if (strcmp(s, "[") == 0) {
         get_ip_list(ip_ptr, nb_ip, tokens, i_ptr);
     } else {
         get_ip_address(ip_ptr, nb_ip, tokens, i_ptr);
@@ -377,11 +380,12 @@ void get_rules_ip(RuleIpv4 **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr) {
 }
 void get_rules_port(RulePort **port_ptr, int *nb_ports, Tokens *tokens,
                     int *i_ptr) {
-    if (strcmp(tokens->tokens[*i_ptr], "!") == 0) {
+    char *s = tokens->tokens[*i_ptr];
+    if (strcmp(s, "!") == 0) {
         inverse_negation_port(port_ptr, nb_ports, tokens, i_ptr);
-    } else if (strcmp(tokens->tokens[*i_ptr], "any") == 0) {
+    } else if (strcmp(s, "any") == 0) {
         get_port_any(port_ptr, nb_ports, tokens, i_ptr);
-    } else if (strcmp(tokens->tokens[*i_ptr], "[") == 0) {
+    } else if (strcmp(s, "[") == 0) {
         get_port_list(port_ptr, nb_ports, tokens, i_ptr);
     } else {
         get_port_address(port_ptr, nb_ports, tokens, i_ptr);
@@ -409,37 +413,38 @@ void get_rule_action(Rule *rule, Tokens *tokens, int *i_ptr) {
 }
 void get_rule_protocol(Rule *rule, Tokens *tokens, int *i_ptr) {
     if (strcmp(tokens->tokens[*i_ptr], "ethernet") == 0) {
-        rule->protocol = Ethernet;
-    } else if (strcmp(tokens->tokens[*i_ptr], "ipv4") == 0) {
-        rule->protocol = Ipv4;
+        rule->protocol = RP_Ethernet;
+    } else if (strcmp(tokens->tokens[*i_ptr], "ipv4") == 0 ||
+               strcmp(tokens->tokens[*i_ptr], "ip") == 0) {
+        rule->protocol = RP_Ipv4;
     } else if (strcmp(tokens->tokens[*i_ptr], "ipv6") == 0) {
-        rule->protocol = Ipv6;
+        rule->protocol = RP_Ipv6;
     } else if (strcmp(tokens->tokens[*i_ptr], "tcp") == 0) {
-        rule->protocol = Tcp;
+        rule->protocol = RP_Tcp;
     } else if (strcmp(tokens->tokens[*i_ptr], "udp") == 0) {
-        rule->protocol = Udp;
+        rule->protocol = RP_Udp;
     } else if (strcmp(tokens->tokens[*i_ptr], "icmp") == 0) {
-        rule->protocol = Icmp;
+        rule->protocol = RP_Icmp;
     } else if (strcmp(tokens->tokens[*i_ptr], "http") == 0) {
-        rule->protocol = Http;
+        rule->protocol = RP_Http;
     } else if (strcmp(tokens->tokens[*i_ptr], "tls") == 0) {
-        rule->protocol = Tls;
+        rule->protocol = RP_Tls;
     } else if (strcmp(tokens->tokens[*i_ptr], "ssh") == 0) {
-        rule->protocol = Ssh;
+        rule->protocol = RP_Ssh;
     } else if (strcmp(tokens->tokens[*i_ptr], "ftp") == 0) {
-        rule->protocol = Ftp;
+        rule->protocol = RP_Ftp;
     } else if (strcmp(tokens->tokens[*i_ptr], "tftp") == 0) {
-        rule->protocol = Tftp;
+        rule->protocol = RP_Tftp;
     } else if (strcmp(tokens->tokens[*i_ptr], "smtp") == 0) {
-        rule->protocol = Smtp;
+        rule->protocol = RP_Smtp;
     } else if (strcmp(tokens->tokens[*i_ptr], "imap") == 0) {
-        rule->protocol = Imap;
+        rule->protocol = RP_Imap;
     } else if (strcmp(tokens->tokens[*i_ptr], "ntp") == 0) {
-        rule->protocol = Ntp;
+        rule->protocol = RP_Ntp;
     } else if (strcmp(tokens->tokens[*i_ptr], "dhcp") == 0) {
-        rule->protocol = Dhcp;
+        rule->protocol = RP_Dhcp;
     } else if (strcmp(tokens->tokens[*i_ptr], "dns") == 0) {
-        rule->protocol = Dns;
+        rule->protocol = RP_Dns;
     }
 
     (*i_ptr)++;

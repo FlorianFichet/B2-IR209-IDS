@@ -8,12 +8,15 @@
             "name": "Debug project",
             "type": "cppdbg",
             "request": "launch",
-            "program": "/home/flo/Bureau/Developpement/project/ids",
+            "program": "/home/user/Downloads/project/ids",
             "args": [
+                // "-h",
                 "-p",
                 "-d", "eth1",
-                "-r", "/home/flo/Bureau/Developpement/project/ids.rules",
+                "-r", "/home/user/Downloads/project/ids.rules",
                 "-n", "10",
+                "--print-logs",
+                "--print-all",
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
@@ -30,26 +33,5 @@
             "preLaunchTask": "Build project",
             "miDebuggerPath": "/usr/bin/gdb"
         },
-        {
-            "name": "gcc-10 - Build and debug active file",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${fileDirname}/${fileBasenameNoExtension}",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                }
-            ],
-            "preLaunchTask": "C/C++: gcc-10 build active file",
-            "miDebuggerPath": "/usr/bin/gdb"
-        }
     ]
 }

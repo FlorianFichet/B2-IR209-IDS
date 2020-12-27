@@ -9,10 +9,9 @@
 #define SIZE_MAC_ADDRESS 6
 #define SIZE_IPV4_ADDRESS 4
 #define SIZE_ETHERNET_HEADER 14
+#define SIZE_UDP_HEADER 8
+#define SIZE_TLS_HEADER 5
 
-
-#define SIZE_ETHERNET 14
-#define ETHER_ADDR_LEN_STR 18
 #define IPV4_ADDR_LEN_STR 16
 
 #define ARP_PROTOCOL 2054
@@ -24,14 +23,13 @@
 #define HTTP_PORT 80
 #define HTTPS_PORT 443
 
-#define IP_RF 0x8000      /* reserved fragment flag */
-#define IP_DF 0x4000      /* don't fragment flag */
-#define IP_MF 0x2000      /* more fragments flag */
+#define IP_RF 0x8000          /* reserved fragment flag */
+#define IP_DF 0x4000          /* don't fragment flag */
+#define IP_MF 0x2000          /* more fragments flag */
 #define IP_OFFSET_MASK 0x1fff /* mask for fragmenting bits */
 
 #define IP_OFFSET_VALUE(ip) (((ip)->ip_offset_and_flags) & (IP_OFFSET_MASK))
 #define IP_FLAG_VALUE(ip, mask) ((((ip)->ip_offset_and_flags) & (mask)) ? 1 : 0)
-
 
 #define TH_FIN 0x01
 #define TH_SYN 0x02
@@ -97,6 +95,12 @@ struct tcp_segment {
     u_short th_checksum;
     u_short th_urgent_pointer;
 } typedef TcpSegment;
+struct udp_segment {
+    u_short port_source;
+    u_short port_destination;
+    u_short length;
+    u_short checksum;
+} typedef UdpSegment;
 struct http_data {
     bool is_response;
     HttpRequestMethod request_method;  // only for requests
@@ -105,34 +109,33 @@ struct http_data {
     void *header;
     void *data;
 } typedef HttpData;
+struct tls_data {
+    u_char content_type;
+    u_short version;
+    u_short length;
+    void *header;
+    void *data;
+} __attribute__((packed)) typedef TlsData;
 
 
-enum data_link_protocol {
-    DLP_None,
-    DLP_Ethernet,
-} typedef DataLinkProtocol;
-enum network_protocol {
-    NP_None,
-    NP_Ipv4,
-    NP_Ipv6,
-    NP_Arp,
-} typedef NetworkProtocol;
-enum transport_protocol {
-    TP_None,
-    TP_Tcp,
-    TP_Udp,
-} typedef TransportProtocol;
-enum application_protocol {
-    AP_None,
-    AP_Http,
-    AP_Https,
-} typedef ApplicationProtocol;
+enum populate_protocol {
+    // NOTE: "PP" stands for "Populate Protocol"
+    PP_None,
+    PP_Ethernet,
+    PP_Ipv4,
+    PP_Ipv6,
+    PP_Arp,
+    PP_Tcp,
+    PP_Udp,
+    PP_Http,
+    PP_Tls,
+} typedef PopulateProtocol;
 
 struct packet {
-    DataLinkProtocol data_link_protocol;
-    NetworkProtocol network_protocol;
-    TransportProtocol transport_protocol;
-    ApplicationProtocol application_protocol;
+    PopulateProtocol data_link_protocol;
+    PopulateProtocol network_protocol;
+    PopulateProtocol transport_protocol;
+    PopulateProtocol application_protocol;
 
     void *data_link_header;
     void *network_header;
@@ -141,22 +144,10 @@ struct packet {
     // NOTE: the application layer's header is the only one that need to be
     // allocated, it's because it doesn't have a fixed size.
 
-    uint32_t packet_length;
+    struct pcap_pkthdr *packet_header;
 } typedef Packet;
 
 
-void populate_data_link_layer(Packet *packet);
-void populate_network_layer(Packet *packet);
-void populate_transport_layer(Packet *packet);
-void populate_application_layer(Packet *packet);
 void populate_packet(void *body, Packet *packet);
-
-
-void print_ethernet_header(EthernetFrame *ethernet);
-void print_ipv4_datagram_header(Ipv4Datagram *ipv4);
-void print_tcp_segment_header(TcpSegment *tcp);
 void print_packet_headers(Packet *packet);
-
-
-void dump_memory(void *start, size_t size);
-void dump_memory_hex(void *start, size_t size);
+void print_packet_data(Packet *packet);

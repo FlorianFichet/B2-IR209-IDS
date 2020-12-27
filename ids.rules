@@ -1,4 +1,9 @@
+alert ip any any -> any [440:445,![440:442],![444:445]] (msg:"hello";)
+alert ip [192.168.0.0/24,![192.168.0.1,192.168.0.254]] any -> any any (msg:"world";)
+alert ip any any -> any any (msg:"hello world !";)
+alert tls any any -> any any (msg:"tls detected";)
+
 alert http any any -> any any (msg:"shell attack"; content:"malware.exe";)
 alert tcp any any -> any 8888 (msg:"backdoor attack";)
-alert udp any any -> any 9999 (msg:"UDP traffic bind port is forbidden";)
+alert udp any any -> any any (msg:"UDP traffic is forbidden";)
 alert ftp any any -> any any (msg:"Unsecure protocol use detected";)

@@ -20,11 +20,24 @@ uint32_t convert_endianess_32bits(uint32_t nb) {
 }
 
 
+size_t get_data_link_protocol_header_length(Packet *packet) {
+    size_t size_data_link = 0;
+
+    switch (packet->data_link_protocol) {
+        case PP_Ethernet:
+            size_data_link = SIZE_ETHERNET_HEADER;
+            break;
+        default:
+            break;
+    }
+
+    return size_data_link;
+}
 size_t get_network_protocol_header_length(Packet *packet) {
     size_t size_network = 0;
 
     switch (packet->network_protocol) {
-        case NP_Ipv4:
+        case PP_Ipv4:
             size_network =
                 ((Ipv4Datagram *)packet->network_header)->ip_header_length * 4;
             break;
@@ -38,46 +51,48 @@ size_t get_transport_protocol_header_length(Packet *packet) {
     size_t size_transport = 0;
 
     switch (packet->transport_protocol) {
-        case TP_Tcp:
+        case PP_Tcp:
             size_transport =
                 TCP_OFFSET_VALUE((TcpSegment *)packet->transport_header) * 4;
             break;
+        case PP_Udp:
+            size_transport = SIZE_UDP_HEADER;
         default:
             break;
     }
 
     return size_transport;
 }
-NetworkProtocol get_network_protocol_from_code(uint16_t protocol) {
+PopulateProtocol get_network_protocol_from_code(uint16_t protocol) {
     switch (protocol) {
         case ARP_PROTOCOL:
-            return NP_Arp;
+            return PP_Arp;
         case IPV4_PROTOCOL:
-            return NP_Ipv4;
+            return PP_Ipv4;
         case IPV6_PROTOCOL:
-            return NP_Ipv6;
+            return PP_Ipv6;
         default:
-            return NP_None;
+            return PP_None;
     }
 }
-TransportProtocol get_transport_protocol_from_code(uint8_t protocol) {
+PopulateProtocol get_transport_protocol_from_code(uint8_t protocol) {
     switch (protocol) {
         case UDP_PROTOCOL:
-            return TP_Udp;
+            return PP_Udp;
         case TCP_PROTOCOL:
-            return TP_Tcp;
+            return PP_Tcp;
         default:
-            return TP_None;
+            return PP_None;
     }
 }
-ApplicationProtocol get_application_protocol_from_port(uint32_t port) {
+PopulateProtocol get_application_protocol_from_port(uint32_t port) {
     switch (port) {
         case HTTP_PORT:
-            return AP_Http;
+            return PP_Http;
         case HTTPS_PORT:
-            return AP_Https;
+            return PP_Tls;
         default:
-            return AP_None;
+            return PP_None;
     }
 }
 void get_http_status_code(HttpData *http_data) {
@@ -253,18 +268,19 @@ void populate_tcp_segment(Packet *packet) {
     // check if there is an application layer by comparing the length of the
     // headers with the total size of the packet, if there is an application
     // layer add the protocol and the header's address
-    size_t size_ethernet = SIZE_ETHERNET_HEADER;
+    size_t size_data_link = get_data_link_protocol_header_length(packet);
     size_t size_network = get_network_protocol_header_length(packet);
     size_t size_transport = get_transport_protocol_header_length(packet);
+    uint32_t packet_length = packet->packet_header->caplen;
 
     // NOTE: it's also possible to use the: ipv4->total_length to check whether
     // there is an application layer but it's not "protocol independant"
-    if (packet->packet_length > size_ethernet + size_network + size_transport) {
+    if (packet_length > size_data_link + size_network + size_transport) {
         // NOTE: one of the ports may not be the protocol's port,
         //       that's why we have to test both
         packet->application_protocol =
             get_application_protocol_from_port(tcp->th_source_port);
-        if (packet->application_protocol == AP_None) {
+        if (packet->application_protocol == PP_None) {
             packet->application_protocol =
                 get_application_protocol_from_port(tcp->th_destination_port);
         }
@@ -272,6 +288,38 @@ void populate_tcp_segment(Packet *packet) {
         // *4 => words of 4 bytes (32 bits)
         packet->application_header =
             packet->transport_header + TCP_OFFSET_VALUE(tcp) * 4;
+    }
+}
+void populate_udp_segment(Packet *packet) {
+    UdpSegment *udp = packet->transport_header;
+
+    // convert endianness
+    udp->port_source = convert_endianess_16bits(udp->port_source);
+    udp->port_destination = convert_endianess_16bits(udp->port_destination);
+    udp->length = convert_endianess_16bits(udp->length);
+    udp->checksum = convert_endianess_16bits(udp->checksum);
+
+    // check if there is an application layer by comparing the length of the
+    // headers with the total size of the packet, if there is an application
+    // layer add the protocol and the header's address
+    size_t size_data_link = get_data_link_protocol_header_length(packet);
+    size_t size_network = get_network_protocol_header_length(packet);
+    size_t size_transport = get_transport_protocol_header_length(packet);
+    uint32_t packet_length = packet->packet_header->caplen;
+
+    // NOTE: it's also possible to use the: ipv4->total_length to check whether
+    // there is an application layer but it's not "protocol independant"
+    if (packet_length > size_data_link + size_network + size_transport) {
+        // NOTE: one of the ports may not be the protocol's port,
+        //       that's why we have to test both
+        packet->application_protocol =
+            get_application_protocol_from_port(udp->port_source);
+        if (packet->application_protocol == PP_None) {
+            packet->application_protocol =
+                get_application_protocol_from_port(udp->port_destination);
+        }
+
+        packet->application_header = packet->transport_header + SIZE_UDP_HEADER;
     }
 }
 void populate_http_data(Packet *packet) {
@@ -294,11 +342,30 @@ void populate_http_data(Packet *packet) {
         http_data->content_length = 0;
     }
 }
+void populate_tls_data(Packet *packet) {
+    // 1. copy the location of the tls header before malloc a TlsData struct
+    void *tls_header = packet->application_header;
+
+    // 2. malloc a tls struct
+    packet->application_header = malloc(sizeof(TlsData));
+    TlsData *tls = (TlsData *)packet->application_header;
+
+    // 3. copy the data (only possible because tls' header is fixed size)
+    (*tls) = *(TlsData *)tls_header;
+
+    // 4. get the header's and the data's addresses
+    tls->header = tls_header;
+    tls->data = tls_header + SIZE_TLS_HEADER;
+
+    // 5. convert endianness
+    tls->version = convert_endianess_16bits(tls->version);
+    tls->length = convert_endianess_16bits(tls->length);
+}
 
 
 void populate_data_link_layer(Packet *packet) {
     switch (packet->data_link_protocol) {
-        case DLP_Ethernet:
+        case PP_Ethernet:
             populate_ethernet_frame(packet);
             break;
         default:
@@ -307,7 +374,7 @@ void populate_data_link_layer(Packet *packet) {
 }
 void populate_network_layer(Packet *packet) {
     switch (packet->network_protocol) {
-        case NP_Ipv4:
+        case PP_Ipv4:
             populate_ipv4_datagram(packet);
             break;
         default:
@@ -316,8 +383,11 @@ void populate_network_layer(Packet *packet) {
 }
 void populate_transport_layer(Packet *packet) {
     switch (packet->transport_protocol) {
-        case TP_Tcp:
+        case PP_Tcp:
             populate_tcp_segment(packet);
+            break;
+        case PP_Udp:
+            populate_udp_segment(packet);
             break;
         default:
             break;
@@ -325,35 +395,27 @@ void populate_transport_layer(Packet *packet) {
 }
 void populate_application_layer(Packet *packet) {
     switch (packet->application_protocol) {
-        case AP_Http:
+        case PP_Http:
             populate_http_data(packet);
+            break;
+        case PP_Tls:
+            populate_tls_data(packet);
             break;
         default:
             break;
     }
 }
 void populate_packet(void *packet_body, Packet *packet) {
-    // initialize
-    packet->data_link_protocol = DLP_Ethernet;
-    packet->network_protocol = NP_None;
-    packet->transport_protocol = TP_None;
-    packet->application_protocol = AP_None;
-
-    packet->data_link_header = packet_body;
-    packet->network_header = NULL;
-    packet->transport_header = NULL;
-    packet->application_header = NULL;
-
     // populate
     populate_data_link_layer(packet);
-    if (packet->network_protocol != NP_None &&
-        packet->network_protocol != NP_Arp) {
+    if (packet->network_protocol != PP_None &&
+        packet->network_protocol != PP_Arp) {
         populate_network_layer(packet);
     }
-    if (packet->transport_protocol != TP_None) {
+    if (packet->transport_protocol != PP_None) {
         populate_transport_layer(packet);
     }
-    if (packet->application_protocol != AP_None) {
+    if (packet->application_protocol != PP_None) {
         populate_application_layer(packet);
     }
 }
@@ -471,6 +533,14 @@ void print_tcp_segment_header(TcpSegment *tcp) {
     printf("    checksum: %u\n", tcp->th_checksum);
     printf("    urgent pointer: %u\n", tcp->th_urgent_pointer);
 }
+void print_udp_segment_header(UdpSegment *udp) {
+    printf("udp header:\n");
+
+    printf("    port source: %u\n", udp->port_source);
+    printf("    port destination: %u\n", udp->port_destination);
+    printf("    length: %u\n", udp->length);
+    printf("    checksum: %u\n", udp->checksum);
+}
 void print_http_data_header(HttpData *http) {
     printf("http header:\n    ");
 
@@ -490,58 +560,89 @@ void print_http_data_header(HttpData *http) {
 
     printf("\n");
 }
-
+void print_tls_data_header(TlsData *tls) {
+    printf("tls header:\n");
+    printf("    content type: %u\n", tls->content_type);
+    printf("    version: %u\n", tls->version);
+    printf("    content length: %u\n", tls->length);
+}
 void print_packet_headers(Packet *packet) {
     static int i = 0;
     printf("\nPacket n°%d:\n", ++i);
 
     switch (packet->data_link_protocol) {
-        case DLP_Ethernet:
+        case PP_Ethernet:
             print_ethernet_header(packet->data_link_header);
             break;
         default:
             break;
     }
     switch (packet->network_protocol) {
-        case NP_Ipv4:
+        case PP_Ipv4:
             print_ipv4_datagram_header(packet->network_header);
             break;
-        case NP_Ipv6:
+        case PP_Ipv6:
             break;
-        case NP_Arp:
+        case PP_Arp:
             break;
         default:
             break;
     }
     switch (packet->transport_protocol) {
-        case TP_Tcp:
+        case PP_Tcp:
             print_tcp_segment_header(packet->transport_header);
             break;
-        case TP_Udp:
+        case PP_Udp:
+            print_udp_segment_header(packet->transport_header);
             break;
         default:
             break;
     }
     switch (packet->application_protocol) {
-        case AP_Http:
+        case PP_Http:
             print_http_data_header(packet->application_header);
             break;
-        case AP_Https:
+        case PP_Tls:
+            print_tls_data_header(packet->application_header);
             break;
         default:
             break;
     }
 }
-
-
-void dump_memory_hex(void *start, size_t size) {
-    int i = 0;
-    while (i < size) {
-        if (i % 16 == 15) {
-            printf("\n");
-        }
-        printf("%02x ", *(uint8_t *)(start + i));
-        i++;
+void print_data(void *start, size_t size) {
+    for (size_t i = 0; i < size; i++) {
+        printf("%c", *(char *)(start + i));
     }
     printf("\n");
+}
+void print_packet_data(Packet *packet) {
+    void *data;
+    size_t length;
+    // NOTE: the data could be transported both by a transport protocol (such as
+    // UDP) or by an application protocol (such as HTTP)
+    switch (packet->application_protocol) {
+        case PP_Http:;
+            HttpData *http = (HttpData *)packet->application_header;
+            data = http->data;
+            length = http->content_length;
+            print_data(data, length);
+            return;
+        case PP_Tls:;
+            TlsData *tls = (TlsData *)packet->application_header;
+            data = tls->data;
+            length = tls->length;
+            print_data(data, length);
+            return;
+        default:
+            break;
+    }
+    if (packet->transport_protocol != PP_None) {
+        void *data = packet->transport_header +
+                     get_transport_protocol_header_length(packet);
+        size_t length = packet->packet_header->caplen -
+                        get_transport_protocol_header_length(packet) -
+                        get_network_protocol_header_length(packet) -
+                        get_data_link_protocol_header_length(packet);
+        print_data(data, length);
+    }
 }

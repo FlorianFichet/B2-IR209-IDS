@@ -1,5 +1,9 @@
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdint.h>
+
+#define LENGTH_RULE_MESSAGE 150
+
 
 enum rule_action {
     Alert,
@@ -11,27 +15,28 @@ enum rule_action {
     Rejectboth,
 } typedef RuleAction;
 enum rule_protocol {
-    Ethernet,
-    Ipv4,
-    Ipv6,
-    Tcp,
-    Udp,
-    Icmp,
-    Http,
-    Tls,  // (this includes ssl)
-    Ssh,
-    Ftp,
-    Tftp,
-    Smtp,
-    Imap,
-    Ntp,
-    Dhcp,
-    Dns,
-    No_Protocol,
+    // NOTE: "RP" stands for "Rule Protocol"
+    RP_Ethernet,
+    RP_Ipv4,
+    RP_Ipv6,
+    RP_Tcp,
+    RP_Udp,
+    RP_Icmp,
+    RP_Http,
+    RP_Tls,  // (this includes ssl)
+    RP_Ssh,
+    RP_Ftp,
+    RP_Tftp,
+    RP_Smtp,
+    RP_Imap,
+    RP_Ntp,
+    RP_Dhcp,
+    RP_Dns,
+    RP_No_Protocol,
 } typedef RuleProtocol;
 struct rule_ipv4 {
     bool negation;
-    int ip;        // -1 => any
+    uint32_t ip;
     char netmask;  // CIDR notation (ip/xx)
 } typedef RuleIpv4;
 struct rule_port {
