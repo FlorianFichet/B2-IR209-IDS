@@ -5,11 +5,12 @@
 
 #include "populate.h"
 #include "rules.h"
+#include "error.h"
 
 
-#define SNIFFER_ERROR_HANDLE_NOT_CREATED 1
-#define SNIFFER_ERROR_HANDLE_NOT_ACTIVATED 2
-#define FILE_NOT_OPENED_ERROR 3
+//#define SNIFFER_ERROR_HANDLE_NOT_CREATED 1
+//#define SNIFFER_ERROR_HANDLE_NOT_ACTIVATED 2
+//#define FILE_NOT_OPENED_ERROR 3
 
 
 #define TIME_BUFFER_LENGTH 30
@@ -488,13 +489,20 @@ int main(int argc, char *argv[]) {
     // initialize pcap (the handle is used to identify the session)
     error_code = get_activated_handle(&handle, arguments.device, error_buffer);
     if (error_code != 0) {
+        if (error_code == SNIFFER_ERROR_HANDLE_NOT_CREATED){
+            print_error(handle_not_created);
+        }
+        else if (error_code == SNIFFER_ERROR_HANDLE_NOT_ACTIVATED){
+            print_error(handle_not_activated);
+        }
         return error_code;
     }
 
     // open the rules' file
     FILE *file = fopen(arguments.rules_file_name, "r");
     if (file == NULL) {
-        return FILE_NOT_OPENED_ERROR;
+        print_error(rules_file_not_opened);
+        return RULES_FILE_NOT_OPENED_ERROR;
     }
 
     // read the rules' file
@@ -515,5 +523,5 @@ int main(int argc, char *argv[]) {
     pcap_close(handle);
     free_rules(rules, nb_rules);
 
-    return 0;
+    return not_error;
 }
