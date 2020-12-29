@@ -537,13 +537,17 @@ void extract_rules(Rule **rules_ptr, int *nb_rules, Tokens *tokens) {
 }
 
 
-void read_rules(FILE *file, Rule **rules_ptr, int *count) {
+int read_rules(FILE *file, Rule **rules_ptr, int *count) {
     // 1. tokenize the text
     Tokens tokens = {NULL, 0};
     tokenize_rules(file, &tokens);
 
     // 2. close the file handle
-    fclose(file);
+    int error_code = fclose(file);
+    if (error_code != not_error) {
+        print_error(rules_file_not_closed);
+        return RULES_FILE_NOT_CLOSED_ERROR;
+    }
 
     // 3. extract the rules
     extract_rules(rules_ptr, count, &tokens);
@@ -553,6 +557,8 @@ void read_rules(FILE *file, Rule **rules_ptr, int *count) {
         free(tokens.tokens[i]);
     }
     free(tokens.tokens);
+    
+    return not_error;
 }
 
 

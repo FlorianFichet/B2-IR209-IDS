@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#include "error.h"
+
 #define LENGTH_RULE_MESSAGE 150
 
 
@@ -77,5 +79,5 @@ struct ids_rule {
 } typedef Rule;
 
 
-void read_rules(FILE *file, Rule **rules_ds, int *count);
+int read_rules(FILE *file, Rule **rules_ds, int *count);
 void free_rules(Rule *rules, int nb_rules);
