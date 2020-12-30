@@ -24,8 +24,9 @@
 
 %% Tikz stuff
 \usepackage{tikz}
-\usetikzlibrary{calc, arrows}
+\usetikzlibrary{calc, arrows, patterns}
 \tikzstyle{incolore} = [rectangle, rounded corners, draw=black, minimum height=1cm, minimum width=3cm, text width=3cm, text centered]
+\tikzstyle{field} = [rectangle,, draw=black, minimum height=1cm, minimum width=4cm, text width=3cm, text centered]
 
 \usepackage{libertine}
 \newcommand{\hsp}{\hspace{20pt}}
@@ -599,27 +600,173 @@ void extract_rules(Rule **rules_ptr, int *nb_rules, Tokens *tokens) {
 
 
 
-%% - expliquer les fonctions "increase_nb_..."
+Dans ce projet, nous nous sommes souvent retouvés face à des quantités inconnues. Par exemple, combien de règles allons nous avoir dans le fichier de règles ? Pour résoudre ce problème, nous avons ajouter des fonctions, telle que \textit{increase\_nb\_rules} ci-dessous. Elles sont chargées de ré-allouer la mémoire afin que la "liste" d'éléments puisse grandir dynamiquement en fonction des besoins du programme.
+
+\begin{lstlisting}[style=CStyle]
+void increase_nb_rules(Rule **rules_ptr, int *nb_rules) {
+    (*nb_rules)++;
+    (*rules_ptr) = realloc((*rules_ptr), (*nb_rules) * sizeof(Rule));
+}
+\end{lstlisting}
 
 
 
 
 
-\subsection{Problèmes d'endianness}
+\subsection{Problèmes d'endianness} \label{subsec:probendianness}
 
 
 
-%% - expliquer les fonctions qui changent l'endianness
+Il y a deux manières de représenter un nombre qui occupe plusieurs octets (voir figure \ref{fig:endianness}):
+\begin{itemize}
+    \item placer les octets de poids fort dans l'ordre des adresses (big endian),
+    \item ou bien les placer dans l'ordre inverse des adresses (little endian).
+\end{itemize}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.90\linewidth]{images/Endian-Overview.png}
+    \caption{Illustration des deux types d'endianness \cite{7}}
+    \label{fig:endianness}
+\end{figure}
+
+Le problème vient que les protocoles internet sont codés en big endian, alors que l'architecture x86 code les nombres avec le format little endian. Cela pose problème quand, par exemple, on reçoit le type de protocole dans une trame ethernet. Si on reçoit un paquet IPv4, on aura:
+\begin{itemize}
+    \item 0x0800 = 2048, en big endian,
+    \item qui sera interprété comme étant: 0x0008 = 8, en little endian !
+\end{itemize}
+Nous devons donc changer l'ordre des octets pour pouvoir interpréter correctement les informations reçues. Ceci est fait pas les fonctions suivantes:
+\begin{lstlisting}[style=CStyle]
+uint16_t convert_endianess_16bits(uint16_t nb) {
+    uint16_t result = ((nb >> 8)) | ((nb << 8));
+    return result;
+}
+uint32_t convert_endianess_32bits(uint32_t nb) {
+    uint32_t result = ((nb >> 24))                // move 1-st byte to 4-th byte
+                      | ((nb << 24))              // move 4-th byte to 1-st byte
+                      | ((nb >> 8) & 0x0000ff00)  // move 2-nd byte to 3-rd byte
+                      | ((nb << 8) & 0x00ff0000); // move 3-rd byte to 2-nd byte
+    return result;
+}
+\end{lstlisting}
+Exemples:
+\begin{enumerate}
+    \item Si on veut changer l'endianness de 0x0008, le résultat sera:
+    \[ \begin{aligned}
+        \text{(nb >{}> 8) | (nb <{}< 8)}
+        &= \text{(0x0008 >{}> 8) | (0x0008 <{}< 8)} \\
+        &= \text{(0x0000) | (0x0800)} \\
+        &= \text{0x0800}
+    \end{aligned} \]
+    \item Si on veut changer l'endianness de 0x11223344, on aura:
+    \begin{center}
+        \begin{tabular}{lll}
+            nb >{}> 24                & = 0x11223344 >{}> 24                & = 0x00000011 \\
+            nb <{}< 24                & = 0x11223344 <{}< 24                & = 0x44000000 \\
+            (nb >{}> 8) \& 0x0000ff00 & = (0x11223344 >{}> 8) \& 0x0000ff00 & = 0x00002200 \\
+            (nb <{}< 8) \& 0x00ff0000 & = (0x11223344 <{}< 8) \& 0x00ff0000 & = 0x00330000 \\
+        \end{tabular}
+    \end{center}
+    Et quand on combine le tout:
+    \[ \text{0x00000011 | 0x44000000 | 0x00002200 | 0x00330000 = 0x44332211} \]
+\end{enumerate}
 
 
 
 
 
-\subsection{Structures pour header de protocole}
+\subsection{Structures pour les headers des protocoles}
 
 
 
-%% - expliquer le problème avec les structures (tester: __attribute__)
+Comme pour les problèmes d'endianness (figure \ref{subsec:probendianness}), le placement des champs dans la structure va influencer l'information qu'on obtiendra. Dans l'exemple suivant, nous avons été obligés de changer l'ordre des champs de quatre bits \textit{ip\_header\_length} et \textit{ip\_version} parce que le compilateur les plaçait dans l'ordre inverse par rapport aux champs du protocole IPv4.
+
+\begin{lstlisting}[style=CStyle]
+///////////////////////////////////////////////////////////////////////////////
+// NOTE: the order of the fields might seem weird, it's because of how the   //
+//       compiler places the fields                                          //
+//         0       1       2       3                                         //
+//         01234567012345670123456701234567                                  //
+// ip:     |ver|len|...                                                      //
+// struct: |len|ver|...                                                      //
+///////////////////////////////////////////////////////////////////////////////
+struct ipv4_datagram {
+    u_char ip_header_length : 4;
+    u_char ip_version : 4;
+
+    // autres champs de la structure
+    ...
+} typedef Ipv4Datagram;
+\end{lstlisting}
+
+Et avec la structure suivante (\textit{TlsData}), nous avons dû ajouter l'attribut \textit{packed} pour que le compilateur gcc place les champs de la structure correctement.
+
+\begin{lstlisting}[style=CStyle]
+struct tls_data {
+    u_char content_type;
+    u_short version;
+    u_short length;
+    void *header;
+    void *data;
+} __attribute__((packed)) typedef TlsData;
+\end{lstlisting}
+
+Pour comprendre pourquoi nous devons utiliser l'attribut \textit{packed}, il suffit de comparer les figures \ref{fig:notpackedtls} et \ref{fig:packedtls}. Sur la première, on voit que les champs de la structures ont étés alignés. En fait, ils sont alignés automatiquement par le compilateur avec l'alignement le plus grand possible sur l'architecture de la machine ciblée. Ceci est fait pour optimiser le temps du CPU \cite{8}. Sur la seconde figure, on voit que tous les champs sont collés les uns aux autres. Puisque les données des protocoles réseaux se transmettent d'une machine à une autre, elles ne sont pas optimisées en fonction d'une architecture mais elles sont collées, nous devons donc utiliser l'attribut \textit{packed}.
+\begin{figure}[H]
+    \centering
+    \begin{tikzpicture}
+
+        \node () [anchor=south] at (4,0)  {8};
+        \node () [anchor=south] at (8,0)  {16};
+        \node () [anchor=south] at (12,0) {24};
+        \node () [anchor=south] at (16,0) {32};
+
+        \node () [field, fill=gray!30, anchor=north west] at (0,0) {\textit{content\_type}};
+        \node () [field, pattern=north east lines, anchor=north west] at (4,0) {};
+        \node () [field, anchor=north west, minimum width=8cm] at (8,0) {\textit{version}};
+
+        \node () [field, fill=gray!30, anchor=north west, minimum width=8cm] at (0,-1) {\textit{length}};
+        \node () [field, pattern=north east lines, anchor=north west, minimum width=8cm] at (8,-1) {};
+
+        \node () [field, anchor=north west, minimum width=16cm] at (0,-2) {\textit{header (1)}};
+        \node () [field, anchor=north west, minimum width=16cm] at (0,-3) {\textit{header (2)}};
+
+        \node () [field, fill=gray!30, anchor=north west, minimum width=16cm] at (0,-4) {\textit{data (1)}};
+        \node () [field, fill=gray!30, anchor=north west, minimum width=16cm] at (0,-5) {\textit{data (2)}};
+
+    \end{tikzpicture}
+    \caption{Structure \textit{TlsData} sans l'attribut \textit{packed}}
+    \label{fig:notpackedtls}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \begin{tikzpicture}
+
+        \node () [anchor=south] at (4,0)  {8};
+        \node () [anchor=south] at (8,0)  {16};
+        \node () [anchor=south] at (12,0) {24};
+        \node () [anchor=south] at (16,0) {32};
+
+        \node () [field, fill=gray!30, anchor=north west] at (0,0) {\textit{content\_type}};
+        \node () [field, anchor=north west, minimum width=8cm] at (4,0) {\textit{version}};
+        \node () [field, fill=gray!30, anchor=north west] at (12,0) {\textit{length (1)}};
+
+        \node () [field, fill=gray!30, anchor=north west] at (0,-1) {\textit{length (2)}};
+        \node () [field, anchor=north west, minimum width=12cm] at (4,-1) {\textit{header (1)}};
+
+        \node () [field, anchor=north west, minimum width=16cm] at (0,-2) {\textit{header (2)}};
+
+        \node () [field, anchor=north west] at (0,-3) {\textit{header (3)}};
+        \node () [field, fill=gray!30, anchor=north west, minimum width=12cm] at (4,-3) {\textit{data (1)}};
+
+        \node () [field, fill=gray!30, anchor=north west, minimum width=16cm] at (0,-4) {\textit{data (2)}};
+
+        \node () [field, fill=gray!30, anchor=north west] at (0,-5) {\textit{data (3)}};
+        \node () [field, pattern=north east lines, anchor=north west, minimum width=12cm] at (4,-5) {};
+
+    \end{tikzpicture}
+    \caption{Structure \textit{TlsData} avec l'attribut \textit{packed}}
+    \label{fig:packedtls}
+\end{figure}
 
 
 
@@ -629,7 +776,16 @@ void extract_rules(Rule **rules_ptr, int *nb_rules, Tokens *tokens) {
 
 
 
-%% - expliquer la structure "UserArgsPacketHandler"
+Pour vérifier qu'un paquet n'enfreint pas un règle, il faut deux chose: le paquet et les règles.
+La fonction \textit{packet\_handler} reçoit les paquets en argument mais pas les règles, cependant c'est possible de lui donner des informations en utilisant le paramètre \textit{user} (qui est un pointeur) de la fonction \textit{pcap\_loop}. Afin d'organiser les données que nous allons transmettre à \textit{packet\_handler}, nous avons créés la structure \textit{UserArgsPacketHandler}.
+
+\begin{lstlisting}[style=CStyle]
+struct user_args_packet_handler {
+    int nb_rules;
+    Rule *rules;
+    IdsArguments ids_arguments;
+} typedef UserArgsPacketHandler;
+\end{lstlisting}
 
 
 
@@ -746,6 +902,8 @@ void extract_rules(Rule **rules_ptr, int *nb_rules, Tokens *tokens) {
 \bibitem{4} {\small \url{https://stackoverflow.com/a/16268404/10524378}}
 \bibitem{5} {\small \url{https://fr.wikipedia.org/wiki/Liste_de_ports_logiciels}}
 \bibitem{6} {\small \url{https://www.seas.upenn.edu/~cis522/lecture_notes/lec11.pdf}}
+\bibitem{7} {\small \url{https://uynguyen.github.io/2018/04/30/Big-Endian-vs-Little-Endian/}}
+\bibitem{8} {\small \url{https://gcc.gnu.org/onlinedocs/gcc-3.2/gcc/Variable-Attributes.html}}
 \end{thebibliography}
 
 
