@@ -12,6 +12,7 @@
 \usepackage{amsmath}
 \usepackage{graphicx}
 \usepackage[colorinlistoftodos]{todonotes}
+\PassOptionsToPackage{hyphens}{url}
 \usepackage[colorlinks=true, allcolors=black]{hyperref}
 \usepackage{fourier-orns}
 \usepackage{titlesec}
@@ -252,7 +253,7 @@ Remarquez qu'il faut lancer le programme avec des privilèges plus élevé que l
 
 
 
-Valgrind est un outil de programmation qui sert principalement à découvrir des fuites de mémoire. Par exemple, si j'alloue un bloc de mémoire dans le tas (heap) et que je ne le libère pas, valgrind va me rappeler à l'ordre et même me dire à quelle ligne le bloc mémoire à été alloué (si le programme a été compilé avec un debug flag).
+Valgrind est un outil de programmation qui sert principalement à découvrir des fuites de mémoire. Par exemple, si nous allouons un bloc de mémoire dans le tas (heap) et que nous ne le libèrons pas, valgrind va nous rappeler à l'ordre et même nous dire à quelle ligne le bloc mémoire à été alloué (si le programme a été compilé avec un debug flag).
 
 Lancement du programme avec valgrind (rappel: ids doit être lancé avec des privilèges):
 {\small \begin{verbatim}
@@ -361,32 +362,288 @@ Pour mieux comprendre l'organisation du projet, on peut regarder la figure \ref{
 
 
 
-\section{Explication générale sur le fonctionnement du code}
+\section{Organisation générale du code}
 
 
 
-%% /!\ /!\ /!\ EXPLIQUER QUE LES CHOIX D'IMPLÉMENTATION SONT DANS LA SECTION SUIVANTE
-
-
-
-
+Dans cette section, nous allons expliquer comment le code fonctionne de manière générale mais sans entrer dans le détail. Les choix d'implémentation spécifiques seront expliqués dans la section suivante (section \ref{sec:implspec}).
 
 
 
 
 
-
-\section{Choix d'implémentation spécifiques et problèmes rencontrés}
-
+\subsection{Fichier \textit{populate.c}}
 
 
-%%
-%% - expliquer le problème avec les structures
-%% - expliquer les fonctions récursives
+
+Les 3 fonctions de ce fichier qui ont leur définition dans le header \textit{populate.h} sont:
+\begin{itemize}
+    \item \textit{populate\_packet}, organise les informations à partir de la trame brute
+    \item \textit{print\_packet\_headers}, affiche les headers des protocols utilisés dans le paquet
+    \item \textit{print\_packet\_data}, affiche les données contenues dans le protocole de dernière couche (HTTP, TLS, TCP ou UDP)
+\end{itemize}
+La fonction la plus importante de ce fichier est évidemment la fonction \textit{populate\_packet} qui va appeler d'autres fonctions \textit{populate} comme représenté sur la figure \ref{fig:orgpopulate}.
+\begin{figure}[H]
+    \centering
+    \begin{tikzpicture}
+
+        \node (packet) [incolore] at (0,0) {\textit{populate packet}};
+
+        \node (datalink) [incolore] at (-6,-2) {\textit{populate data link}};
+        \node (network) [incolore] at (-2,-2) {\textit{populate network}};
+        \node (transport) [incolore] at (2,-2) {\textit{populate transport}};
+        \node (application) [incolore] at (6,-2) {\textit{populate application}};
+
+        \node (tcp) [incolore] at (0,-4) {populate tcp};
+        \node (udp) [incolore] at (4,-4) {populate udp};
+
+        \draw[->] (packet) -- (datalink);
+        \draw[->] (packet) -- (network);
+        \draw[->] (packet) -- (transport);
+        \draw[->] (packet) -- (application);
+
+        \draw[->] (transport) -- (tcp);
+        \draw[->] (transport) -- (udp);
+
+    \end{tikzpicture}
+    \caption{Organisation des fonctions \textit{populate}}
+    \label{fig:orgpopulate}
+\end{figure}
+
+
+
+
+
+\subsection{Fichier \textit{rules.c}}
+
+
+
+Les fonctions de ce fichier qui ont leur définition dans le header \textit{rules.h} sont:
+\begin{itemize}
+    \item \textit{read\_rules}
+    \item \textit{free\_rules}
+\end{itemize}
+La fonction la plus importante de ce fichier est \textit{read\_rules} qui va faire la tokenisation du fichier de règles (voir section \ref{subsec:tokens} pour des explications sur les tokens) puis en extraire les règles, ceci est illustré par la figure \ref{fig:orgrules}.
+\begin{figure}[H]
+    \centering
+    \begin{tikzpicture}
+
+        \node (read) [incolore] at (0,0) {\textit{read rules}};
+
+        \node (token) [incolore] at (-4,-2) {\textit{tokenize rules}};
+        \node (extract) [incolore] at (4,-2) {\textit{extract rules}};
+
+        \node (action) [incolore] at (-6,-4) {\textit{get action}};
+        \node (protocol) [incolore] at (-2,-4) {\textit{get protocol}};
+        \node (dots) [incolore] at (2,-4) {\textit{...}};
+        \node (options) [incolore] at (6,-4) {\textit{get options}};
+
+        \node (settings) [incolore] at (6,-6) {\textit{get option settings}};
+
+        \draw[->] (read) -- (token);
+        \draw[->] (read) -- (extract);
+
+        \draw[->] (extract) -- (action);
+        \draw[->] (extract) -- (protocol);
+        \draw[->] (extract) -- (dots);
+        \draw[->] (extract) -- (options);
+
+        \draw[->] (options) -- (settings);
+
+    \end{tikzpicture}
+    \caption{Organisation des fonctions utilisées pour extraire les règles}
+    \label{fig:orgrules}
+\end{figure}
+
+Les fonctions pour obtenir les IPs et les ports sont plus compliquées parce que nous avons suivi le format de règle de \textit{surricata} \cite{2}. Ces formats sont représentés sur les figures \ref{fig:formatip} et \ref{fig:formatport}.
+\begin{figure}[H]
+    \centering
+    \begin{tabular}{|c|c|} \hline
+        \textbf{Opérateur} & \textbf{Description} \\ \hline
+        ../.. & range d'IPs (notation CIDR) \\
+        ! & exception/négation \\
+        $[$.., ..$]$ & groupement \\ \hline
+    \end{tabular}
+    \caption{Format d'IP acceptable dans le fichier de règles}
+    \label{fig:formatip}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \begin{tabular}{|c|c|} \hline
+        \textbf{Opérateur} & \textbf{Description} \\ \hline
+        : & range de ports \\
+        ! & exception/négation \\
+        $[$.., ..$]$ & groupement \\ \hline
+    \end{tabular}
+    \caption{Format de port acceptable dans le fichier de règles}
+    \label{fig:formatport}
+\end{figure}
+
+
+
+
+
+\subsection{Fichier \textit{main.c}}
+
+
+
+Il y a deux structures dans \textit{main.c}:
+\begin{itemize}
+    \item \textit{IdsArguments}, sert à stocker les paramètres donnés en ligne de commande à l'IDS,
+    \item \textit{UserArgsPacketHandler}, sert à stocker des paramètres pour la fonction \textit{packet\_handler} tels que les règles du programme et les arguments de l'IDS lui-même.
+\end{itemize}
+Il y a aussi quelques fonctions à noter dans le fichier \textit{main.c}:
+\begin{itemize}
+    \item \textit{main}, c'est le point d'entrée du programme, elle va appeler les autres fonctions de l'ids,
+    \item \textit{packet\_handler}, fonction appellée par \textit{pacp\_loop} quand un paquet est capturé, elle doit utiliser les fonctions \textit{populate\_packet} et \textit{rules\_matcher} pour vérifier si le paquet correspond à une règle,
+    \item \textit{rules\_matcher}, vérifie si le paquet correspond à une règle,
+    \item \textit{parse\_arguments}, analyse les arguments donnés en ligne de commande,
+    \item \textit{write\_syslog}, écrit un message dans syslog.
+\end{itemize}
+
+
+
+
+
+\subsection{Détection de l’encryption du payload}
+
+
+
+Dans la section \textit{critères minimum de réussite} de l'énoncé, il nous est demandé de pouvoir faire la \textit{détection de l'encryption du payload}. Cependant, c'est une tâche difficile si on doit le faire pour tous les paquets. D'autant plus que des données compressées ressemblent souvent à des données cryptées \cite{3}.
+
+Ce que nous avons décidé de faire est donc de laisser l'utilisateur écrire des règles pour des protocoles de chiffrement des données comme TLS qui seront détectés en fonction du port (source ou destination) utilisé. Notre implémentation différe en deux points de la recommendation donnée (figure \ref{fig:tls01}):
+\begin{enumerate}
+    \item Nous ne cherchons pas à détecter la poignée de main TLS sur le port 443 car c'est le seul protocole qui utilise ce port \cite{5}, si un paquet est transmis avec ce port, il est directement signalé en tant que paquet utilisant TLS.
+    \item Nous ne gardons pas trace de la communication en utilisant les numéro de séquence de paquet TCP mais nous utilisons uniquement le port utilisé. Ceci découle du point précédent, c-à-d qu'un paquet est signalé en fonction de son port, et puisque une communication utilisant TCP ou UDP ne peut pas changer de port car elle est identifiée en utilisant ces ports \cite{4}, il n'y a pas besoin de garder une trace de la communication avec une variable dans le code (le port utilisé est suffisant pour identifier la communication).
+\end{enumerate}
+Il y a deux problèmes à cette approche:
+\begin{itemize}
+    \item On imagine facilement que le protocole TLS peut être utilisé sur d'autres ports sans difficultés mais sa détection devient ardue puisqu'il faut dès lors chercher la présence de header TLS dans tous les paquets peut importe leur port. Ceci augmente aussi le risque de signalement de paquets n'utilisant pas le TLS. Nous avons décidé de ne pas prendre ce risque.
+    \item On peut aussi penser que du traffic légitime passerait sur un port réservé au protocole TLS. Cependant, il y a peu de chance que cela arrive puisque le port est réservé.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{images/tls-01.PNG}
+    \caption{Recommendation pour garder trace des paquets chiffrés}
+    \label{fig:tls01}
+\end{figure}
+
+
+
+
+
+
+
+
+
+
+\section{Choix d'implémentation et problèmes rencontrés} \label{sec:implspec}
+
+
+
+
+
+\subsection{Tokens} \label{subsec:tokens}
+
+
+
+%% - expliquer les tokens, et expliquer i_ptr
+
+
+
+
+
+\subsection{Structure de données dynamique}
+
+
+
+%% - expliquer les fonctions "increase_nb_..."
+
+
+
+
+
+\subsection{Problèmes d'endianness}
+
+
+
 %% - expliquer les fonctions qui changent l'endianness
+
+
+
+
+
+\subsection{Structures pour header de protocole}
+
+
+
+%% - expliquer le problème avec les structures (tester: __attribute__)
+
+
+
+
+
+\subsection{Passer des arguments à la fonction \textit{packet\_handler}}
+
+
+
+%% - expliquer la structure "UserArgsPacketHandler"
+
+
+
+
+
+\subsection{Fonctions récursives}
+
+
+
+%% - expliquer les fonctions récursives
+
+
+
+
+
+\subsection{Macros et masques}
+
+
+
 %% - expliquer les macros avec les masques
+
+
+
+
+
+\subsection{...}
+
+
+
 %% - expliquer les endroits où j'ai utiliser un shift de bits (<<)
-%%
+%%   https://stackoverflow.com/questions/45432694/shifting-unsigned-int-more-than-the-size-of-it-undefined-or-not
+
+
+
+
+
+\subsection{Variable statique}
+
+
+
+%% - expliquer la variable statique ("Packet n°...")
+
+
+
+
+
+\subsection{...}
+
+
+
+%% - expliquer quand on additionne au pointeur "n" ou "n * sizeof(...)" (=> double pointeur ??) (rules.c)
+
+
+
+
 
 Voici hello world:
 
@@ -413,6 +670,17 @@ int main(void)
 
 
 
+%%
+%% -- prendre en charge les adresses des protocoles ipv6/ethernet
+%% -- pouvoir pointer la ligne & colonne où il y a une erreur dans le fichier ids.rules
+%% -- pouvoir "drop" le paquet sans qu'il soit analysé par un programme
+%%    https://www.linuxquestions.org/questions/linux-networking-3/capture-drop-packets-using-c-716868/
+%% -- pouvoir "reject" le paquet (drop + envoyer un message "RST/ICMP unreach error")
+%% --  Some organizations have a policy that states that SSL/TLS encrypted data needs to be decrypted when it reaches the internal network and then analyzed for malware and potential attacks. It is often then re-encrypted and sent to its final destination.
+%%    https://qr.ae/pNJyLS
+%% -- voir les critères de dépassement de l'énoncé
+%% -- afficher une erreur quand on donne un mauvais argument à l'ids (voir afficher l'aide)
+%% -- ajouter plus de fichiers .c/.h pour que ce soit plus simple (ex: 1 seule enum pour les protocoles)
 %%
 
 
@@ -447,10 +715,10 @@ int main(void)
 \newpage \tableofcontents \listoffigures
 \begin{thebibliography}{9}
 \bibitem{1} {\small \url{https://github.com/groumache/Intrusion-Detection-System}}
-% \bibitem{2} 
-% \bibitem{3} 
-% \bibitem{4} 
-% \bibitem{5} 
+\bibitem{2} {\small \url{https://suricata.readthedocs.io/en/latest/rules/intro.html}}
+\bibitem{3} {\small \url{https://qr.ae/pNSWwR}}
+\bibitem{4} {\small \url{https://stackoverflow.com/a/16268404/10524378}}
+\bibitem{5} {\small \url{https://fr.wikipedia.org/wiki/Liste_de_ports_logiciels}}
 % \bibitem{6} 
 \end{thebibliography}
 
