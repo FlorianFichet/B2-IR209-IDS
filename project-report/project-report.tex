@@ -795,7 +795,30 @@ struct user_args_packet_handler {
 
 
 
-%% - expliquer les fonctions récursives
+Les seules fonctions qui font des appels "récursifs" dans ce projet sont dans le fichier \textit{rules.c} et servent à extraire les IP ou les ports à partir des tokens. Par exemple, pour les listes, on pourrait avoir un cas comme ceci (format accepté représenté sur la figure \ref{fig:formatip}):
+\begin{center} <ip> = [<ip>, ![<ip>, <ip>]] \end{center}
+Et donc pour simplifier l'implémentation, on appelle récursivement la fonction \textit{get\_rule\_ip} après "!", "[" et ",".
+
+\textbf{Remarque}: ce n'est pas une récursivité directe mais une récursivité indirecte puisque les fonctions vont s'appeler comme sur la figure \ref{fig:recursive}
+
+\begin{figure}[H]
+    \centering
+    \begin{tikzpicture}
+
+        \node (ip) [incolore] at (0,0) {\textit{get rule ip}};
+
+        \node (inv)  [incolore] at (-3,-3) {\textit{inverse negation ip}};
+        \node (list) [incolore] at (+3,-3) {\textit{get ip list}};
+
+        \draw [->] ($(ip.south) + (-0.4,0)$) to [out=-135+20, in=45-20] ($(inv.north) + (0.6,0)$);
+        \draw [<-] ($(ip.south) + (-0.6,0)$) to [out=-135-20, in=45+20] ($(inv.north) + (0.4,0)$);
+
+        \draw [->] ($(ip.south) + (0.6,0)$) to [out=-45+20, in=135-20] ($(list.north) + (-0.4,0)$);
+        \draw [<-] ($(ip.south) + (0.4,0)$) to [out=-45-20, in=135+20] ($(list.north) + (-0.6,0)$);
+
+    \end{tikzpicture}
+    \caption{Récursivité indirecte pour extraire les IPs}
+\end{figure}
 
 
 
@@ -811,22 +834,12 @@ struct user_args_packet_handler {
 
 
 
-\subsection{...}
+\subsection{Les shifts de bits}
 
 
 
 %% - expliquer les endroits où j'ai utiliser un shift de bits (<<)
 %%   https://stackoverflow.com/questions/45432694/shifting-unsigned-int-more-than-the-size-of-it-undefined-or-not
-
-
-
-
-
-\subsection{Variable statique}
-
-
-
-%% - expliquer la variable statique ("Packet n°...")
 
 
 
