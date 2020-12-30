@@ -58,8 +58,6 @@ void copy_token(char *token, int token_size, Tokens *tokens) {
         --token_size;
     }
 }
-
-
 // function that adds a token to the 'Tokens' struct
 void add_token(char *token, int token_size, Tokens *tokens) {
     increase_nb_tokens(tokens);
@@ -69,7 +67,6 @@ void add_token(char *token, int token_size, Tokens *tokens) {
 
     copy_token(token, token_size, tokens);
 }
-
 // this function tokenizes the file that contains the rules, i.e. it separates
 // every word, parentheses, etc. into separate strings for later analysis
 void tokenize_rules(FILE *file, Tokens *tokens) {
@@ -229,8 +226,6 @@ void get_port_from_str(RulePort *port, Tokens *tokens, int *i_ptr) {
         port->end_port = port->start_port;
     }
 }
-
-
 void get_option_settings(RuleOption *option, Tokens *tokens, int *i_ptr) {
     // example of syntax: option = ... :setting,setting;
 
@@ -255,6 +250,7 @@ void get_option_settings(RuleOption *option, Tokens *tokens, int *i_ptr) {
     // increase *i_ptr to account for the ';'
     (*i_ptr)++;
 }
+
 
 void inverse_negation_ip(RuleIpv4 **ip_ptr, int *nb_ip, Tokens *tokens,
                          int *i_ptr) {
@@ -392,6 +388,7 @@ void get_rules_port(RulePort **port_ptr, int *nb_ports, Tokens *tokens,
     }
 }
 
+
 void get_rule_action(Rule *rule, Tokens *tokens, int *i_ptr) {
     if (strcmp(tokens->tokens[*i_ptr], "alert") == 0) {
         rule->action = Alert;
@@ -502,6 +499,7 @@ void get_rule_options(Rule *rule, Tokens *tokens, int *i_ptr) {
     (*i_ptr)++;
 }
 
+
 void extract_rules(Rule **rules_ptr, int *nb_rules, Tokens *tokens) {
     int i = 0;
     while (i < tokens->nb_tokens) {
@@ -535,8 +533,6 @@ void extract_rules(Rule **rules_ptr, int *nb_rules, Tokens *tokens) {
         // functions used above
     }
 }
-
-
 void read_rules(FILE *file, Rule **rules_ptr, int *count) {
     // 1. tokenize the text
     Tokens tokens = {NULL, 0};
