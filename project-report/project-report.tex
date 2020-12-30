@@ -525,7 +525,7 @@ Il y a deux problèmes à cette approche:
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.75\linewidth]{images/tls-01.PNG}
-    \caption{Recommendation pour garder trace des paquets chiffrés}
+    \caption{Recommendation pour détecter et garder trace des paquets chiffrés}
     \label{fig:tls01}
 \end{figure}
 
@@ -548,13 +548,54 @@ Il y a deux problèmes à cette approche:
 
 
 
-%% - expliquer les tokens, et expliquer i_ptr
+La tokenisation c'est la séparation d'un texte en plus petites unités appelées tokens (comme illustré sur la figure \ref{fig:tokenization}). L'utilité de la tokenisation dans ce projet est que l'on a séparé deux choses:
+\begin{itemize}
+    \item le traitement des informations contenues dans le texte,
+    \item et la recherche des informations.
+\end{itemize}
+Ainsi, la fonction \textit{extract\_rules} (appellée par \textit{read\_rules} après la tokenisation) ne doit pas chercher où commence et finit un protocole dans le fichier de règle puisque ça a été pris en charge par la fonction \textit{tokenize\_rules}, elle est seulement responsable d'extraire l'information du token.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.65\linewidth]{images/tokenization.png}
+    \caption{Illustration de la tokenisation \cite{6}}
+    \label{fig:tokenization}
+\end{figure}
+
+Nous avons mis ci-dessous la fonction \textit{extract\_rules} utilisée dans notre code pour extraire les règles des tokens et les mettre dans des structures \textit{Rule}. La variable \textit{i} est utilisée pour itérer sur les tokens. Cependant il y a un problème : si une IP, par exemple, est en fait une liste d'IP qui est placée sur plusieurs tokens (voir figure \ref{fig:formatip} sur les formats d'IP), de combien doit-on incrémenter la variable \textit{i} ?
+
+Pour résoudre ce problème, le pointeur de la variable \textit{i} est passé en paramètre des fonctions qui servent à obtenir la règle (comme \textit{get\_rule\_action} ou \textit{get\_rule\_source\_ip}). Ce sont désormais ces fonctions qui sont responsables d'incrémenter \textit{i}. Ainsi, si une liste d'IP source prend vingt tokens, la fonction \textit{get\_rule\_source\_ip} devra incrémenter \textit{i} de vingt.
+\begin{lstlisting}[style=CStyle]
+void extract_rules(Rule **rules_ptr, int *nb_rules, Tokens *tokens) {
+    int i = 0;
+    while (i < tokens->nb_tokens) {
+        // add an empty rule to the list
+        ...
+
+        // initialize the rule
+        ...
+
+        // get the rule
+        get_rule_action(rule, tokens, &i);
+        get_rule_protocol(rule, tokens, &i);
+        get_rule_source_ip(rule, tokens, &i);
+        get_rule_source_port(rule, tokens, &i);
+        get_rule_direction(rule, tokens, &i);
+        get_rule_destination_ip(rule, tokens, &i);
+        get_rule_destination_port(rule, tokens, &i);
+        get_rule_options(rule, tokens, &i);
+
+        // NOTE: no need to increase i (i++) as it is incremented in the
+        // functions used above
+    }
+}
+\end{lstlisting}
 
 
 
 
 
-\subsection{Structure de données dynamique}
+\subsection{Structures de données dynamiques}
 
 
 
@@ -645,22 +686,6 @@ Il y a deux problèmes à cette approche:
 
 
 
-Voici hello world:
-
-\begin{lstlisting}[style=CStyle]
-#include <stdio.h>
-
-// this is hello world
-int main(void)
-{
-    printf("Hello World!"); 
-}
-\end{lstlisting}
-
-
-
-
-
 
 
 
@@ -673,6 +698,7 @@ int main(void)
 %%
 %% -- prendre en charge les adresses des protocoles ipv6/ethernet
 %% -- pouvoir pointer la ligne & colonne où il y a une erreur dans le fichier ids.rules
+%% -- ajouter la possibilité d'écrire des commentaires dans le fichier ids.rules
 %% -- pouvoir "drop" le paquet sans qu'il soit analysé par un programme
 %%    https://www.linuxquestions.org/questions/linux-networking-3/capture-drop-packets-using-c-716868/
 %% -- pouvoir "reject" le paquet (drop + envoyer un message "RST/ICMP unreach error")
@@ -719,7 +745,7 @@ int main(void)
 \bibitem{3} {\small \url{https://qr.ae/pNSWwR}}
 \bibitem{4} {\small \url{https://stackoverflow.com/a/16268404/10524378}}
 \bibitem{5} {\small \url{https://fr.wikipedia.org/wiki/Liste_de_ports_logiciels}}
-% \bibitem{6} 
+\bibitem{6} {\small \url{https://www.seas.upenn.edu/~cis522/lecture_notes/lec11.pdf}}
 \end{thebibliography}
 
 
