@@ -7,15 +7,14 @@
 
 
 uint16_t convert_endianess_16bits(uint16_t nb) {
-    uint16_t result = ((nb >> 8)) | ((nb << 8));
+    uint16_t result = (nb >> 8) | (nb << 8);
     return result;
 }
 uint32_t convert_endianess_32bits(uint32_t nb) {
     uint32_t result = ((nb >> 24))                // move 1-st byte to 4-th byte
                       | ((nb << 24))              // move 4-th byte to 1-st byte
                       | ((nb >> 8) & 0x0000ff00)  // move 2-nd byte to 3-rd byte
-                      |
-                      ((nb << 8) & 0x00ff0000);  // move 3-rd byte to 2-nd byte
+                      | ((nb << 8) & 0x00ff0000);  // move 3-rd byte to 2-nd byte
     return result;
 }
 
