@@ -291,7 +291,7 @@ void get_ip_any(RuleIpv4 **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr) {
     // 1. increment *i_ptr, add a new ip
     (*i_ptr)++;
     increase_nb_ip(ip_ptr, nb_ip);
-    RuleIpv4 *ip = (*ip_ptr) + ((*nb_ip) - 1) * sizeof(RuleIpv4);
+    RuleIpv4 *ip = (*ip_ptr) + ((*nb_ip) - 1);
 
     // set the ip's fields
     ip->negation = false;
@@ -303,7 +303,7 @@ void get_port_any(RulePort **port_ptr, int *nb_ports, Tokens *tokens,
     // increment *i_ptr, add a new port
     (*i_ptr)++;
     increase_nb_ports(port_ptr, nb_ports);
-    RulePort *port = (*port_ptr) + ((*nb_ports) - 1) * sizeof(RulePort);
+    RulePort *port = (*port_ptr) + ((*nb_ports) - 1);
 
     // set the port's fields
     port->negation = false;
