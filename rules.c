@@ -169,13 +169,15 @@ void get_ip_and_netmask_from_str(char *ip_str, uint32_t *ip_int,
 
     int index_buffer = 0;
     int i = 0;
+    char c;
 
-    while (ip_str[i] != '/' && ip_str[i] != '\0') {
-        if (ip_str[i] == '.') {
+    while (num_byte > 0) {
+        c = ip_str[i];
+        if (c == '.' || c == '/' || c == '\0') {
             // get the number from the buffer
             int byte = atoi(buffer);
-            // add the byte to ip_int
 
+            // add the byte to ip_int
             // e.g. ip = "255.0.0.0"
             //      byte = 255
             //      num_byte = 3
@@ -187,19 +189,19 @@ void get_ip_and_netmask_from_str(char *ip_str, uint32_t *ip_int,
             num_byte--;
             index_buffer = 0;
             fill_in_char_buffer(buffer, 4, '\0');
+
+            if (c == '/' || c == '\0') {
+                continue;
+            }
         } else {
             // add the digit to the buffer
-            buffer[index_buffer] = ip_str[i];
+            buffer[index_buffer] = c;
             index_buffer++;
         }
         i++;
     }
-    // get the number from the buffer
-    int byte = atoi(buffer);
-    // add it to ip_int
-    (*ip_int) += byte;
 
-    if (ip_str[i] == '/') {
+    if (c == '/') {
         // get the netmask (the netmask is the rest of *ip_str, after the '/')
         // ip_str + i     => '/<netmask>'
         // ip_str + i + 1 => '<netmask>'

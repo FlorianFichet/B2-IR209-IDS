@@ -502,7 +502,7 @@ void print_ipv4_datagram_header(Ipv4Datagram *ipv4) {
     printf("    flag reserved: %u\n", IP_FLAG_VALUE(ipv4, IP_RF));
     printf("    flag don't fragment: %u\n", IP_FLAG_VALUE(ipv4, IP_DF));
     printf("    flag more fragments: %u\n", IP_FLAG_VALUE(ipv4, IP_MF));
-    printf("    fragment offset: %u\n", IP_OFFSET_VALUE(ipv4));
+    printf("    fragment offset: %u\n", convert_endianess_16bits(IP_OFFSET_VALUE(ipv4)));
     printf("    time to live: %u\n", ipv4->ip_time_to_live);
     printf("    protocol: %u -- %s\n", ipv4->ip_protocol, protocol_name);
     printf("    header checksum: %u\n", ipv4->ip_checksum);
