@@ -543,7 +543,7 @@ int read_rules(FILE *file, Rule **rules_ptr, int *count) {
     // 2. close the file handle
     int error_code = fclose(file);
     if (error_code != not_error) {
-        print_error(rules_file_not_closed);
+        print_error(RULES_FILE_NOT_CLOSED_ERROR);
         return RULES_FILE_NOT_CLOSED_ERROR;
     }
 
