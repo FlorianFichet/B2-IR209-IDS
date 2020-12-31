@@ -159,40 +159,28 @@ void copy_string_in_heap(char *string, char **copy) {
     strcpy((*copy), string);
 }
 
-// get an ip int from a string representation, e.g. "255.255.255.255/24"
-// => *ip_int = 4294967295, *netmask = 24
+// get an ip int from a string representation
 void get_ip_and_netmask_from_str(char *ip_str, uint32_t *ip_int,
                                  char *netmask) {
     char buffer[4] = "";
     fill_in_char_buffer(buffer, 4, '\0');
     int num_byte = 3;  // 3-0
-
     int index_buffer = 0;
     int i = 0;
     char c;
-
-    while (num_byte > 0) {
+    while (num_byte >= 0) {
         c = ip_str[i];
         if (c == '.' || c == '/' || c == '\0') {
             // get the number from the buffer
             int byte = atoi(buffer);
 
             // add the byte to ip_int
-            // e.g. ip = "255.0.0.0"
-            //      byte = 255
-            //      num_byte = 3
-            //      *ip_int += 255 << (8 * 3)
-            //              += 255 << 24
             (*ip_int) += byte << (8 * num_byte);
 
             // decrement num_byte, reinitialize the buffer/index_buffer
             num_byte--;
             index_buffer = 0;
             fill_in_char_buffer(buffer, 4, '\0');
-
-            if (c == '/' || c == '\0') {
-                continue;
-            }
         } else {
             // add the digit to the buffer
             buffer[index_buffer] = c;
@@ -202,10 +190,8 @@ void get_ip_and_netmask_from_str(char *ip_str, uint32_t *ip_int,
     }
 
     if (c == '/') {
-        // get the netmask (the netmask is the rest of *ip_str, after the '/')
-        // ip_str + i     => '/<netmask>'
-        // ip_str + i + 1 => '<netmask>'
-        (*netmask) = atoi(ip_str + i + 1);
+        // get the netmask (the netmask is the rest of *ip_str)
+        (*netmask) = atoi(ip_str + i);
     } else {
         // if there's only an ip (a host, not a network), it's as if the netmask
         // had a value of 32 (CIDR notation)
