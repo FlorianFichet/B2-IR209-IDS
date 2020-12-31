@@ -28,6 +28,7 @@
 #define IP_MF 0x2000          /* more fragments flag */
 #define IP_OFFSET_MASK 0x1fff /* mask for fragmenting bits */
 
+// NOTE: the endianness should be converted after using IP_OFFSET_VALUE
 #define IP_OFFSET_VALUE(ip) (((ip)->ip_offset_and_flags) & (IP_OFFSET_MASK))
 #define IP_FLAG_VALUE(ip, mask) ((((ip)->ip_offset_and_flags) & (mask)) ? 1 : 0)
 
