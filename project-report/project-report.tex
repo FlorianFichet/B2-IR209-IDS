@@ -522,6 +522,13 @@ Il y a deux problèmes à cette approche:
     \item On imagine facilement que le protocole TLS peut être utilisé sur d'autres ports sans difficultés mais sa détection devient ardue puisqu'il faut dès lors chercher la présence de header TLS dans tous les paquets peut importe leur port. Ceci augmente aussi le risque de signalement de paquets n'utilisant pas le TLS. Nous avons décidé de ne pas prendre ce risque.
     \item On peut aussi penser que du traffic légitime passerait sur un port réservé au protocole TLS. Cependant, il y a peu de chance que cela arrive puisque le port est réservé.
 \end{itemize}
+En résumé:
+\[
+    \left.\begin{aligned}
+        &\text{le traffic non-crypté ne doit pas passer sur le port 443}\\
+        &\text{le traffic crypté passant par d'autres ports est trop difficile à signaler}
+    \end{aligned}\right\} \text{nous ne vérifions que le port 443}
+\]
 
 \begin{figure}[H]
     \centering
@@ -799,7 +806,7 @@ Les seules fonctions qui font des appels "récursifs" dans ce projet sont dans l
 \begin{center} <ip> = [<ip>, ![<ip>, <ip>]] \end{center}
 Et donc pour simplifier l'implémentation, on appelle récursivement la fonction \textit{get\_rule\_ip} après "!", "[" et ",".
 
-\textbf{Remarque}: ce n'est pas une récursivité directe mais une récursivité indirecte puisque les fonctions vont s'appeler comme sur la figure \ref{fig:recursive}
+\textbf{Remarque}: ce n'est pas une récursivité directe mais une récursivité indirecte puisque les fonctions vont s'appeler comme sur la figure \ref{fig:recursive}.
 
 \begin{figure}[H]
     \centering
@@ -818,17 +825,8 @@ Et donc pour simplifier l'implémentation, on appelle récursivement la fonction
 
     \end{tikzpicture}
     \caption{Récursivité indirecte pour extraire les IPs}
+    \label{fig:recursive}
 \end{figure}
-
-
-
-
-
-\subsection{Macros et masques}
-
-
-
-%% - expliquer les macros avec les masques
 
 
 
@@ -838,8 +836,71 @@ Et donc pour simplifier l'implémentation, on appelle récursivement la fonction
 
 
 
-%% - expliquer les endroits où j'ai utiliser un shift de bits (<<)
-%%   https://stackoverflow.com/questions/45432694/shifting-unsigned-int-more-than-the-size-of-it-undefined-or-not
+Nous utilisons des shifts à plusieurs endroits dans notre code. Il y a notamment une utilisation triviale pour générer un string représentant une IPv4 (fonction \textit{get\_ipv4\_address\_string}, identique à la fonction \textit{generate\_ip} donnée dans le code de base et l'énoncé). Nous avons aussi couvert les fonction qui convertissent l'endianness dans la section \ref{subsec:probendianness}.
+
+Le code suivant est utilisé dans \textit{rules.c} pour faire l'inverse de \textit{get\_ipv4\_address\_string}, c'est-à-dire convertir un string IPv4 en un entier. Exemple:
+\begin{itemize}
+    \item ip\_str = "255.0.0.0"
+    \item num\_byte est initialisé à 3 et est décrémenté après chaque octet
+    \item le buffer va contenir chaque byte successivement ("255", "0", "0", "0")
+    \item byte est la conversion du buffer en entier (255, 0, 0, 0)
+    \item \[\begin{aligned}
+        \text{ip\_int}
+        &= \text{(255 <{}< (8 * 3)) + (0 <{}< (8 * 2)) + (0 <{}< (8 * 1)) + (0 <{}< (8 * 0))} \\
+        &= \text{(255 <{}< 24) + (0 <{}< 16) + (0 <{}< 8) + (0 <{}< 0)} \\
+        &= \text{255 <{}< 24} \\
+        &= \text{0xFF000000} \\
+    \end{aligned}\]
+\end{itemize}
+
+\begin{lstlisting}[style=CStyle]
+// get the number from the buffer
+int byte = atoi(buffer);
+
+// add the byte to ip_int
+(*ip_int) += byte << (8 * num_byte);
+
+num_byte--;
+\end{lstlisting}
+
+Dans le code suivant, qui vient de la fonction \textit{check\_ipv4\_match} dans le fichier \textit{main.c}, on va vérifier que l'adresse IPv4 du paquet (entier non-signé de 32-bits) correspond à l'adresse IP de la règle (entier non-signé de 32-bits, avec un netmask au format CIDR). L'idée va être de comparer l'adresse réseau des deux adresses. Exemple:
+\begin{itemize}
+    \item uint32\_t ip = 3232235521 (= 192.168.0.1)
+    \item addresses[i].netmask = 24 (= 255.255.255.0)
+    \item addresses[i].ip = 3232235774 (= 192.168.0.254)
+    \item wildcard\_cidr = 32 - addresses[i].netmask = 8
+    \item \[\begin{aligned}
+        \text{wildcard}
+        &= \text{(1 <{}< wildcard\_cidr) - 1} \\
+        &= \text{(1 <{}< 8) - 1} \\
+        &= \text{256 - 1} = 255 \\
+    \end{aligned}\]
+    \item \[\begin{aligned}
+        \text{uint32\_t netmask}
+        &= \text{-1 - wildcard} \\
+        &= \text{4294967295 - wildcard} \\
+        &= \text{4294967295 - 255} \\
+        &= \text{4294967040 (= 255.255.255.0)} \\
+    \end{aligned}\]
+    \item \[\begin{aligned}
+        &\text{(ip \& netmask) == (addresses[i].ip \& netmask)} \\
+        &= \text{(192.168.0.1 \& 255.255.255.0) == (192.168.0.254 \& 255.255.255.0)} \\
+        &= \text{192.168.0.0 == 192.168.0.0} \\
+    \end{aligned}\]
+\end{itemize}
+
+\begin{lstlisting}[style=CStyle]
+uint32_t wildcard_cidr = 32 - addresses[i].netmask;
+uint32_t wildcard = (1 << wildcard_cidr) - 1;
+uint32_t netmask = -1 - wildcard;
+
+if (wildcard_cidr == 32 ||
+    (ip & netmask) == (addresses[i].ip & netmask)) {
+    ips_match = !addresses[i].negation;
+}
+\end{lstlisting}
+
+Une dernière remarque par rapport au code ci-dessus: nous devons absolument ajouter la condition \textit{wildcard\_cidr == 32} pour vérifier qu'on ne fait pas un shift égal à la taille du nombre en bits (uint32\_t est codé sur 32-bits). En effet, faire un shift négatif ou avec un nombre plus grand ou égal à la taille en bits du nombre est un comportement indéfini (undefined behavior) \cite{9}.
 
 
 
@@ -850,6 +911,27 @@ Et donc pour simplifier l'implémentation, on appelle récursivement la fonction
 
 
 %% - expliquer quand on additionne au pointeur "n" ou "n * sizeof(...)" (=> double pointeur ??) (rules.c)
+
+
+
+
+
+\subsection{Variable statique}
+
+
+
+%% ...
+
+
+
+
+
+\subsection{...}
+
+
+
+%% expliquer "#pragma once" et "#ifndef ERROR_H"
+%% https://gcc.gnu.org/onlinedocs/cpp/Pragmas.html (fin de la page !)
 
 
 
@@ -917,6 +999,7 @@ Et donc pour simplifier l'implémentation, on appelle récursivement la fonction
 \bibitem{6} {\small \url{https://www.seas.upenn.edu/~cis522/lecture_notes/lec11.pdf}}
 \bibitem{7} {\small \url{https://uynguyen.github.io/2018/04/30/Big-Endian-vs-Little-Endian/}}
 \bibitem{8} {\small \url{https://gcc.gnu.org/onlinedocs/gcc-3.2/gcc/Variable-Attributes.html}}
+\bibitem{9} {\small \url{https://stackoverflow.com/a/45433017/10524378}}
 \end{thebibliography}
 
 
