@@ -557,7 +557,7 @@ int read_rules(FILE *file, Rule **rules_ptr, int *count) {
         free(tokens.tokens[i]);
     }
     free(tokens.tokens);
-    
+
     return not_error;
 }
 

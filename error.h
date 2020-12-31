@@ -22,4 +22,4 @@ struct error {
 void print_error(Error_type error_type);
 
 
-#endif // ERROR_H
+#endif  // ERROR_H
