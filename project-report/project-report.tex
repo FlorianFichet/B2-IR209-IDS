@@ -28,6 +28,10 @@
 \tikzstyle{incolore} = [rectangle, rounded corners, draw=black, minimum height=1cm, minimum width=3cm, text width=3cm, text centered]
 \tikzstyle{field} = [rectangle,, draw=black, minimum height=1cm, minimum width=4cm, text width=3cm, text centered]
 
+%% Pour les exemples
+\usepackage{mdframed}
+\newmdenv[topline=false, bottomline=false, rightline=false, skipabove=3pt, skipbelow=3pt]{example}
+
 \usepackage{libertine}
 \newcommand{\hsp}{\hspace{20pt}}
 \newcommand{\HRule}{\rule{\linewidth}{0.5mm}}
@@ -68,6 +72,7 @@
     numberstyle=\color{gray},
     stringstyle=\color{purple},
     frame=single,
+    escapeinside={\%*}{*)},
     breakatwhitespace=false,
     breaklines=true,
     captionpos=b,
@@ -333,6 +338,7 @@ Comme on peut voir sur la figure \ref{fig:archsys}, l'ids est divisé en quatre 
 \end{enumerate}
 
 \begin{figure}[H]
+    \centering
     \includegraphics[width=0.99\linewidth]{../markdown-explanations/images/software-architecture-2.png}
     \caption{Architecture du système}
     \label{fig:archsys}
@@ -349,7 +355,8 @@ Comme on peut voir sur la figure \ref{fig:archsys}, l'ids est divisé en quatre 
 Pour mieux comprendre l'organisation du projet, on peut regarder la figure \ref{fig:structproj} sert à montrer quels fichiers sont inclus dans quels autres.
 
 \begin{figure}[H]
-    \includegraphics[width=0.99\linewidth]{../markdown-explanations/images/project-structure.png}
+    \centering
+    \includegraphics[width=0.90\linewidth]{../markdown-explanations/images/project-structure.png}
     \caption{Structure du projet}
     \label{fig:structproj}
 \end{figure}
@@ -514,19 +521,19 @@ Dans la section \textit{critères minimum de réussite} de l'énoncé, il nous e
 
 Ce que nous avons décidé de faire est donc de laisser l'utilisateur écrire des règles pour des protocoles de chiffrement des données comme TLS qui seront détectés en fonction du port (source ou destination) utilisé. Notre implémentation différe en deux points de la recommendation donnée (figure \ref{fig:tls01}):
 \begin{enumerate}
-    \item Nous ne cherchons pas à détecter la poignée de main TLS sur le port 443 car c'est le seul protocole qui utilise ce port \cite{5}, si un paquet est transmis avec ce port, il est directement signalé en tant que paquet utilisant TLS.
-    \item Nous ne gardons pas trace de la communication en utilisant les numéro de séquence de paquet TCP mais nous utilisons uniquement le port utilisé. Ceci découle du point précédent, c-à-d qu'un paquet est signalé en fonction de son port, et puisque une communication utilisant TCP ou UDP ne peut pas changer de port car elle est identifiée en utilisant ces ports \cite{4}, il n'y a pas besoin de garder une trace de la communication avec une variable dans le code (le port utilisé est suffisant pour identifier la communication).
+    \item Nous ne cherchons pas à détecter la poignée de main TLS sur le port 443 car c'est le seul protocole qui utilise ce port \cite{5}. Si un paquet est transmis avec ce port, il est directement signalé en tant que paquet utilisant TLS.
+    \item Nous ne gardons pas trace de la communication en utilisant les numéros de séquence de paquet TCP mais nous utilisons uniquement le port utilisé. Ceci découle du point précédent, c-à-d qu'un paquet est signalé en fonction de son port. Et puisqu'une communication TCP/UDP est identifiée en utilisant ces ports, elle ne peut pas les changer \cite{4}. Il n'y a pas non plus besoin de garder une trace de la communication avec une variable (le port utilisé est suffisant pour identifier la communication).
 \end{enumerate}
 Il y a deux problèmes à cette approche:
 \begin{itemize}
-    \item On imagine facilement que le protocole TLS peut être utilisé sur d'autres ports sans difficultés mais sa détection devient ardue puisqu'il faut dès lors chercher la présence de header TLS dans tous les paquets peut importe leur port. Ceci augmente aussi le risque de signalement de paquets n'utilisant pas le TLS. Nous avons décidé de ne pas prendre ce risque.
-    \item On peut aussi penser que du traffic légitime passerait sur un port réservé au protocole TLS. Cependant, il y a peu de chance que cela arrive puisque le port est réservé.
+    \item Le protocole TLS peut être utilisé sur d'autres ports mais sa détection devient ardue puisqu'il faut dès lors chercher la présence du header TLS dans tous les paquets peut importe leur port. Ceci augmente aussi le risque de signalement de paquets n'utilisant pas le TLS.
+    \item Du trafic légitime pourrait passer sur un port réservé au protocole TLS. Cependant, il y a peu de chance que cela arrive puisque le port est réservé.
 \end{itemize}
 En résumé:
 \[
     \left.\begin{aligned}
-        &\text{le traffic non-crypté ne doit pas passer sur le port 443}\\
-        &\text{le traffic crypté passant par d'autres ports est trop difficile à signaler}
+        &\text{le trafic non-crypté ne doit pas passer sur le port 443}\\
+        &\text{le trafic crypté passant par d'autres ports est trop difficile à vérifier}
     \end{aligned}\right\} \text{nous ne vérifions que le port 443}
 \]
 
@@ -570,7 +577,7 @@ Ainsi, la fonction \textit{extract\_rules} (appellée par \textit{read\_rules} a
     \label{fig:tokenization}
 \end{figure}
 
-Nous avons mis ci-dessous la fonction \textit{extract\_rules} utilisée dans notre code pour extraire les règles des tokens et les mettre dans des structures \textit{Rule}. La variable \textit{i} est utilisée pour itérer sur les tokens. Cependant il y a un problème : si une IP, par exemple, est en fait une liste d'IP qui est placée sur plusieurs tokens (voir figure \ref{fig:formatip} sur les formats d'IP), de combien doit-on incrémenter la variable \textit{i} ?
+Nous avons mis ci-dessous la fonction \textit{extract\_rules} qui extrait les règles des tokens et les met dans les structures \textit{Rule}. La variable \textit{i} est utilisée pour itérer sur les tokens. Cependant il y a un problème: si une IP, par exemple, est en fait une liste d'IP écrite sur plusieurs tokens (voir figure \ref{fig:formatip} sur les formats d'IP), de combien doit-on incrémenter la variable \textit{i} ?
 
 Pour résoudre ce problème, le pointeur de la variable \textit{i} est passé en paramètre des fonctions qui servent à obtenir la règle (comme \textit{get\_rule\_action} ou \textit{get\_rule\_source\_ip}). Ce sont désormais ces fonctions qui sont responsables d'incrémenter \textit{i}. Ainsi, si une liste d'IP source prend vingt tokens, la fonction \textit{get\_rule\_source\_ip} devra incrémenter \textit{i} de vingt.
 \begin{lstlisting}[style=CStyle]
@@ -836,7 +843,7 @@ Et donc pour simplifier l'implémentation, on appelle récursivement la fonction
 
 
 
-Nous utilisons des shifts à plusieurs endroits dans notre code. Il y a notamment une utilisation triviale pour générer un string représentant une IPv4 (fonction \textit{get\_ipv4\_address\_string}, identique à la fonction \textit{generate\_ip} donnée dans le code de base et l'énoncé). Nous avons aussi couvert les fonction qui convertissent l'endianness dans la section \ref{subsec:probendianness}.
+Nous utilisons des shifts à plusieurs endroits dans notre code. Il y a notamment une utilisation triviale pour générer un string représentant une IPv4 (fonction \textit{get\_ipv4\_address\_string}, identique à la fonction \textit{generate\_ip} donnée dans le code de base avec l'énoncé). Nous avons aussi couvert les fonction qui convertissent l'endianness dans la section \ref{subsec:probendianness}.
 
 Le code suivant est utilisé dans \textit{rules.c} pour faire l'inverse de \textit{get\_ipv4\_address\_string}, c'est-à-dire convertir un string IPv4 en un entier. Exemple:
 \begin{itemize}
@@ -906,32 +913,44 @@ Une dernière remarque par rapport au code ci-dessus: nous devons absolument ajo
 
 
 
-\subsection{...}
-
-
-
-%% - expliquer quand on additionne au pointeur "n" ou "n * sizeof(...)" (=> double pointeur ??) (rules.c)
-
-
-
-
-
 \subsection{Variable statique}
 
 
 
-%% ...
+Pour pouvoir s'y retrouver plus facilement quand on affiche les header des paquets, nous avons ajouté une variable qui sert à numéroter les paquets dans la fonction \textit{print\_packet\_headers}. Si nous avions utilisés une variable locale, l'information serait perdue à la fin de la fonction. Pour pouvoir la conserver, nous avons pensé à 3 possibilités:
+\begin{itemize}
+    \item utiliser une variable globale,
+    \item converver l'état de la variable dans la structure \textit{UserArgsPacketHandler} qui est renvoyé à la réception de chaque paquet comme argument dans la fonction \textit{packet\_handler},
+    \item la troisième possibilité est d'utiliser une variable statique qui est déclarée dans la fonction mais qui n'est pas réinitialisée à chaque appel.
+\end{itemize}
+Nous avons décidé d'utiliser une variable statique comme dans le code ci-dessous.
+
+\begin{lstlisting}[style=CStyle]
+void print_packet_headers(Packet *packet) {
+    static int i = 0;
+    printf("\nPacket n%*\textcolor{purple}{°}*)%d:\n", ++i);
+
+    // print the packet headers
+    ...
+}
+\end{lstlisting}
 
 
 
 
 
-\subsection{...}
+\subsection{Include guard}
 
 
 
-%% expliquer "#pragma once" et "#ifndef ERROR_H"
-%% https://gcc.gnu.org/onlinedocs/cpp/Pragmas.html (fin de la page !)
+Les include guards (aussi appelés garde-fous) sont utilisés pour empêcher la double inclusion des fichiers headers \cite{11}. Nous n'en avons eu besoin que pour le fichier \textit{error.h} (voir figure \ref{fig:doubleinclusion}). Il est aussi possible d'utiliser la directive de préprocesseur \textit{\#pragma once} au lieu des include guards. Cependant c'est une alternative moins portable car non-standard  \cite{10}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.80\linewidth]{images/double-include.png}
+    \caption{Illustration de la double inclusion}
+    \label{fig:doubleinclusion}
+\end{figure}
 
 
 
@@ -946,19 +965,79 @@ Une dernière remarque par rapport au code ci-dessus: nous devons absolument ajo
 
 
 
-%%
-%% -- prendre en charge les adresses des protocoles ipv6/ethernet
-%% -- pouvoir pointer la ligne & colonne où il y a une erreur dans le fichier ids.rules
-%% -- ajouter la possibilité d'écrire des commentaires dans le fichier ids.rules
-%% -- pouvoir "drop" le paquet sans qu'il soit analysé par un programme
-%%    https://www.linuxquestions.org/questions/linux-networking-3/capture-drop-packets-using-c-716868/
-%% -- pouvoir "reject" le paquet (drop + envoyer un message "RST/ICMP unreach error")
-%% --  Some organizations have a policy that states that SSL/TLS encrypted data needs to be decrypted when it reaches the internal network and then analyzed for malware and potential attacks. It is often then re-encrypted and sent to its final destination.
-%%    https://qr.ae/pNJyLS
-%% -- voir les critères de dépassement de l'énoncé
-%% -- afficher une erreur quand on donne un mauvais argument à l'ids (voir afficher l'aide)
-%% -- ajouter plus de fichiers .c/.h pour que ce soit plus simple (ex: 1 seule enum pour les protocoles)
-%%
+
+
+\subsection{Changement au niveau des règles ou du fichier de règles}
+
+
+
+\begin{itemize}
+    \item Prendre en charge les adresses des protocoles IPv6 et Ethernet au niveau des règles.
+    \begin{example}
+        Pour le moment, seules les adresses IPv4 peuvent être traitées par l'IDS. Comme la longueur et le format des adresses de ces trois protocoles (IPv4, IPv6, Ethernet) sont forts différents, on pourrait faire une fonction qui vérifie le format d'adresse utilisé (donc pas besoin que l'utilisateur précise le protocole lui-même).
+
+        Il faudrait aussi changer le code dans la fonction \textit{read\_rules} pour prendre en charge ces autres types d'adresses.
+    \end{example}
+    \item Pouvoir écrire un message d'erreur qui précise aussi les numéros de ligne et colonne quand il y a un problème.
+    \begin{example}
+        Il faudrait pouvoir écrire des message d'erreur quand le fichier ids.rules contient des erreurs. Par exemple, si il manque une virgule, une parenthèse fermante, etc. J'ai ajouté la figure \ref{fig:exerreur} pour avoir un exemple de bon message d'erreur. Il montre les numéros de ligne et colonne, il affiche  le contenu des lignes entourant l'erreur, et explique ce que le compilateur attendait.
+        \begin{figure}[H]
+            \centering
+            \includegraphics[width=0.90\linewidth]{images/exemple-erreur.PNG}
+            \caption{Exemple de message d'erreur}
+            \label{fig:exerreur}
+        \end{figure}
+    \end{example}
+    \item Ajouter la possibilité d'écrire des commentaires dans le fichier de règles.
+    \begin{example}
+        Ce serait bien de pouvoir écrire des commentaires qui expliquent une règle. Par exemple, si on croise un \# dans le fichier de règles, le reste de la ligne est ignoré par la fonction \textit{tokenize\_rules}. Le problème vient évidemmment du fait qu'un utilisateur de l'IDS peut vouloir utiliser un \# dans l'option \textit{content} d'une règle pour vérifier que certains paquets ne continennent pas ce caractère. Il faut donc ajouter une possibilité d'échappement.
+    \end{example}
+\end{itemize}
+
+
+
+
+
+\subsection{Prise en charge de plus d'actions}
+
+
+
+\begin{itemize}
+    \item Prendre en charge l'action \textit{drop} pour pouvoir laisser tomber un paquet sans qu'il puisse être utilisé par d'autres programmes.
+    \begin{example}
+        On pourrait créer des \textit{iptables} pour envoyer les paquets dans une file pour les analyser et décider si on les laisse tomber ou pas, et ce avant qu'ils ne soient analysés \cite{12}.
+    \end{example}
+    \item Prendre en charge l'action \textit{reject} qui \textit{drop} le paquet puis envoie un message "RST/ICMP unreach error".
+    \item Ajouter une option pour que notre IDS fasse l'équivalent d'une attaque \textit{man in the middle} (mais légitime) afin d'analyser le contenu des paquets cryptés.
+    \begin{example}
+        Certaines organisations ont une politique de sécurité informatique telle que les données cryptées doivent être décryptées puis analysées avant d'être éventuellement ré-encryptées \cite{13}. Ceci est illustré par la figure \ref{fig:tlsanalysis}.
+        \begin{figure}[H]
+            \centering
+            \includegraphics[width=0.99\linewidth]{images/tls-analysis.jpg}
+            \caption{Analyse TLS \cite{13}}
+            \label{fig:tlsanalysis}
+        \end{figure}
+    \end{example}
+\end{itemize}
+
+
+
+
+
+\subsection{Autres améliorations}
+
+
+
+\begin{itemize}
+    \item Afficher une erreur quand les arguments donnés à l'IDS en ligne de commande sont incorrects.
+    \begin{example}
+        Pour le moment, si un mauvais argument est donné à l'IDS, il est simplement ignoré. Ce serait mieux d'afficher un message d'erreur qui aide l'utilisateur à corriger son erreur.
+    \end{example}
+    \item Ajouter des fichiers pour simplifier l'organisation du code.
+    \begin{example}
+        Le nombre de lignes de code et de fonctions est plutôt élevé. Le projet gagnerait en simplicité si certaines fonctions, structures ou enums étaient placées dans d'autres fichiers. Par exemple, nous utilisons deux enums pour les protocoles (\textit{RuleProtocol} et \textit{PopulateProtocol}). Notre base de code serait simplifiée si on n'en utilisait qu'une, en la mettant dans un fichier header \textit{protocol.h}.
+    \end{example}
+\end{itemize}
 
 
 
@@ -973,7 +1052,7 @@ Une dernière remarque par rapport au code ci-dessus: nous devons absolument ajo
 
 
 
-%%
+Nous avons beaucoup appris avec ce projet, en particulier quand nous avons essayé de résoudre les problèmes rencontrés. Par exemple, nous savons maintenant comment gérer des structures de données dynamiques, travailler avec du binaire (shift, et/ou logique), utiliser des include guards, etc. Mais en-dehors de la programmation elle-même, nous avons appris beaucoup dans des sujets traités par le projet, comme l'utilisation des headers des protocoles réseau et leur analyse en sécurité informatique. En conclusion, nous avons appris comment les IDS fonctionnent et nous en avons implémenté un simplifié.
 
 
 
@@ -1000,6 +1079,10 @@ Une dernière remarque par rapport au code ci-dessus: nous devons absolument ajo
 \bibitem{7} {\small \url{https://uynguyen.github.io/2018/04/30/Big-Endian-vs-Little-Endian/}}
 \bibitem{8} {\small \url{https://gcc.gnu.org/onlinedocs/gcc-3.2/gcc/Variable-Attributes.html}}
 \bibitem{9} {\small \url{https://stackoverflow.com/a/45433017/10524378}}
+\bibitem{10} {\small \url{https://gcc.gnu.org/onlinedocs/cpp/Pragmas.html}}
+\bibitem{11} {\small \url{https://fr.wikipedia.org/wiki/Include_guard}}
+\bibitem{12} {\small \url{https://www.linuxquestions.org/questions/linux-networking-3/capture-drop-packets-using-c-716868/#post3498563}}
+\bibitem{13} {\small \url{https://qr.ae/pNJyLS}}
 \end{thebibliography}
 
 
