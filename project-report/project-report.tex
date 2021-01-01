@@ -237,7 +237,12 @@ Les fichiers de configurations sont présentés sur les figures \ref{fig:debugco
         \end{center}
     \end{itemize}
 \end{enumerate}
-Remarquez qu'il faut lancer le programme avec des privilèges plus élevé que l'utilisateur standard. Pour réussir à faire cela, on peut lancer visual studio code avec ces mêmes privilèges.
+Remarques:
+\begin{itemize}
+    \item Il faut lancer le programme avec des privilèges plus élevé que l'utilisateur standard. Pour réussir à faire cela, on peut lancer visual studio code avec ces mêmes privilèges.
+    \item Les chemins des fichiers devront être modifiés si on clone le répertoire github sur une autre machine.
+    \item Depuis que nous avons écrit cette section de notre rapport, nous avons ajouté des options à l'IDS et un fichier (\textit{error.c}) dans notre base de code.
+\end{itemize}
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.65\linewidth]{images/task-json.PNG}
@@ -724,7 +729,7 @@ struct tls_data {
 } __attribute__((packed)) typedef TlsData;
 \end{lstlisting}
 
-Pour comprendre pourquoi nous devons utiliser l'attribut \textit{packed}, il suffit de comparer les figures \ref{fig:notpackedtls} et \ref{fig:packedtls}. Sur la première, on voit que les champs de la structures ont étés alignés. En fait, ils sont alignés automatiquement par le compilateur avec l'alignement le plus grand possible sur l'architecture de la machine ciblée. Ceci est fait pour optimiser le temps du CPU \cite{8}. Sur la seconde figure, on voit que tous les champs sont collés les uns aux autres. Puisque les données des protocoles réseaux se transmettent d'une machine à une autre, elles ne sont pas optimisées en fonction d'une architecture mais elles sont collées, nous devons donc utiliser l'attribut \textit{packed}.
+Pour comprendre pourquoi nous devons utiliser l'attribut \textit{packed}, il suffit de comparer les figures \ref{fig:notpackedtls} et \ref{fig:packedtls}. Sur la première, on voit que les champs de la structures ont étés alignés. En fait, ils sont alignés automatiquement par le compilateur en fonction de leurs tailles et de l'architecture de la machine ciblée. Ceci est fait pour optimiser le temps du CPU \cite{8}. Sur la seconde figure, on voit que tous les champs sont collés les uns aux autres. Puisque les données des protocoles réseaux se transmettent d'une machine à une autre, elles ne sont pas optimisées en fonction d'une architecture mais elles sont collées, nous devons donc utiliser l'attribut \textit{packed}.
 \begin{figure}[H]
     \centering
     \begin{tikzpicture}
