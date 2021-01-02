@@ -224,7 +224,7 @@ Les fichiers de configurations sont présentés sur les figures \ref{fig:debugco
         \item les arguments sont précisés par le paramètre \textit{args}, ce sont ceux recommandés dans l'énoncé,
         \item si on combine le tout, c'est l'équivalent de la commande:
         \begin{center}
-            \texttt{\small gcc -Wall -o ids main.c populate.c rules.c -lpcap}
+            \texttt{\small gcc -Wall -o ids main.c populate.c rules.c error.c -lpcap}
         \end{center}
     \end{itemize}
     \item Sur la figure \ref{fig:debugconfig2}, on voit le fichier \textit{launch.json}, il sert à configurer le lancement du programme:
@@ -233,7 +233,7 @@ Les fichiers de configurations sont présentés sur les figures \ref{fig:debugco
         \item et dans \textit{args}, on voit les arguments du programme.
         \item si on combine le tout, c'est l'équivalent de la commande:
         \begin{center}
-            \texttt{\small ids -p -d eth1 -r ids.rules -n 10}
+            \texttt{\small ids -p -d eth1 -r ids.rules -n 10 -{}-print-logs -{}-print-all}
         \end{center}
     \end{itemize}
 \end{enumerate}
@@ -241,17 +241,16 @@ Remarques:
 \begin{itemize}
     \item Il faut lancer le programme avec des privilèges plus élevé que l'utilisateur standard. Pour réussir à faire cela, on peut lancer visual studio code avec ces mêmes privilèges.
     \item Les chemins des fichiers devront être modifiés si on clone le répertoire github sur une autre machine.
-    \item Depuis que nous avons écrit cette section de notre rapport, nous avons ajouté des options à l'IDS et un fichier (\textit{error.c}) dans notre base de code.
 \end{itemize}
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.65\linewidth]{images/task-json.PNG}
+    \includegraphics[width=0.85\linewidth]{images/task-json.PNG}
     \caption{Fichier de configuration du debugger, pour la compilation du programme}
     \label{fig:debugconfig1}
 \end{figure}
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.70\linewidth]{images/launch-json.PNG}
+    \includegraphics[width=0.85\linewidth]{images/launch-json.PNG}
     \caption{Fichiers de configuration du debugger, pour lancer le programme}
     \label{fig:debugconfig2}
 \end{figure}
