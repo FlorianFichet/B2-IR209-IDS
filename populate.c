@@ -418,12 +418,6 @@ void populate_packet(void *packet_body, Packet *packet) {
     if (packet->transport_protocol != PP_None) {
         populate_transport_layer(packet);
     }
-    // NOTE: we didn't have enough time to implement a structure and functions
-    // to be able to specifically print FTP headers. However, we can still flag
-    // FTP packets to report unwanted traffic through syslog like the project
-    // statement asked us. And they are still printed but not with a function
-    // print_ftp_data_header but through the printing of the data contained in
-    // the UDP/TCP packets (which is why we added the 2-nd condition below)
     if (packet->application_protocol != PP_None &&
         packet->application_protocol != PP_Ftp) {
         populate_application_layer(packet);

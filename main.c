@@ -464,13 +464,6 @@ void packet_handler(u_char *user_args, const struct pcap_pkthdr *packet_header,
     // check if the packet matches any rule
     rules_matcher(args->rules, args->nb_rules, &packet, args);
 
-    // NOTE: we didn't have enough time to implement a structure and functions
-    // to be able to specifically print FTP headers. However, we can still flag
-    // FTP packets to report unwanted traffic through syslog like the project
-    // statement asked us. And they are still printed but not with a function
-    // print_ftp_data_header but through the printing of the data contained in
-    // the UDP/TCP packets (which is why we added the 3-nd condition below)
-
     // free the packet's application header
     if (packet.application_header != NULL &&
         packet.application_protocol != PP_None &&
