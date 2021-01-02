@@ -22,6 +22,8 @@
 
 #define HTTP_PORT 80
 #define HTTPS_PORT 443
+#define FTP_DATA_TRANSFER 20
+#define FTP_CONTROL 21
 
 #define IP_RF 0x8000          /* reserved fragment flag */
 #define IP_DF 0x4000          /* don't fragment flag */
@@ -130,6 +132,7 @@ enum populate_protocol {
     PP_Udp,
     PP_Http,
     PP_Tls,
+    PP_Ftp,
 } typedef PopulateProtocol;
 
 struct packet {

@@ -11,10 +11,11 @@ uint16_t convert_endianess_16bits(uint16_t nb) {
     return result;
 }
 uint32_t convert_endianess_32bits(uint32_t nb) {
-    uint32_t result = ((nb >> 24))                 // move 1-st byte to 4-th byte
-                      | ((nb << 24))               // move 4-th byte to 1-st byte
-                      | ((nb >> 8) & 0x0000ff00)   // move 2-nd byte to 3-rd byte
-                      | ((nb << 8) & 0x00ff0000);  // move 3-rd byte to 2-nd byte
+    uint32_t result = ((nb >> 24))                // move 1-st byte to 4-th byte
+                      | ((nb << 24))              // move 4-th byte to 1-st byte
+                      | ((nb >> 8) & 0x0000ff00)  // move 2-nd byte to 3-rd byte
+                      |
+                      ((nb << 8) & 0x00ff0000);  // move 3-rd byte to 2-nd byte
     return result;
 }
 
@@ -90,6 +91,9 @@ PopulateProtocol get_application_protocol_from_port(uint32_t port) {
             return PP_Http;
         case HTTPS_PORT:
             return PP_Tls;
+        case FTP_DATA_TRANSFER:
+        case FTP_CONTROL:
+            return PP_Ftp;
         default:
             return PP_None;
     }
@@ -414,7 +418,14 @@ void populate_packet(void *packet_body, Packet *packet) {
     if (packet->transport_protocol != PP_None) {
         populate_transport_layer(packet);
     }
-    if (packet->application_protocol != PP_None) {
+    // NOTE: we didn't have enough time to implement a structure and functions
+    // to be able to specifically print FTP headers. However, we can still flag
+    // FTP packets to report unwanted traffic through syslog like the project
+    // statement asked us. And they are still printed but not with a function
+    // print_ftp_data_header but through the printing of the data contained in
+    // the UDP/TCP packets (which is why we added the 2-nd condition below)
+    if (packet->application_protocol != PP_None &&
+        packet->application_protocol != PP_Ftp) {
         populate_application_layer(packet);
     }
 }
