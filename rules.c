@@ -58,8 +58,6 @@ void copy_token(char *token, int token_size, Tokens *tokens) {
         --token_size;
     }
 }
-
-
 // function that adds a token to the 'Tokens' struct
 void add_token(char *token, int token_size, Tokens *tokens) {
     increase_nb_tokens(tokens);
@@ -69,7 +67,6 @@ void add_token(char *token, int token_size, Tokens *tokens) {
 
     copy_token(token, token_size, tokens);
 }
-
 // this function tokenizes the file that contains the rules, i.e. it separates
 // every word, parentheses, etc. into separate strings for later analysis
 void tokenize_rules(FILE *file, Tokens *tokens) {
@@ -162,28 +159,22 @@ void copy_string_in_heap(char *string, char **copy) {
     strcpy((*copy), string);
 }
 
-// get an ip int from a string representation, e.g. "255.255.255.255/24"
-// => *ip_int = 4294967295, *netmask = 24
+// get an ip int from a string representation
 void get_ip_and_netmask_from_str(char *ip_str, uint32_t *ip_int,
                                  char *netmask) {
     char buffer[4] = "";
     fill_in_char_buffer(buffer, 4, '\0');
     int num_byte = 3;  // 3-0
-
     int index_buffer = 0;
     int i = 0;
-
-    while (ip_str[i] != '/' && ip_str[i] != '\0') {
-        if (ip_str[i] == '.') {
+    char c;
+    while (num_byte >= 0) {
+        c = ip_str[i];
+        if (c == '.' || c == '/' || c == '\0') {
             // get the number from the buffer
             int byte = atoi(buffer);
-            // add the byte to ip_int
 
-            // e.g. ip = "255.0.0.0"
-            //      byte = 255
-            //      num_byte = 3
-            //      *ip_int += 255 << (8 * 3)
-            //              += 255 << 24
+            // add the byte to ip_int
             (*ip_int) += byte << (8 * num_byte);
 
             // decrement num_byte, reinitialize the buffer/index_buffer
@@ -192,21 +183,15 @@ void get_ip_and_netmask_from_str(char *ip_str, uint32_t *ip_int,
             fill_in_char_buffer(buffer, 4, '\0');
         } else {
             // add the digit to the buffer
-            buffer[index_buffer] = ip_str[i];
+            buffer[index_buffer] = c;
             index_buffer++;
         }
         i++;
     }
-    // get the number from the buffer
-    int byte = atoi(buffer);
-    // add it to ip_int
-    (*ip_int) += byte;
 
-    if (ip_str[i] == '/') {
-        // get the netmask (the netmask is the rest of *ip_str, after the '/')
-        // ip_str + i     => '/<netmask>'
-        // ip_str + i + 1 => '<netmask>'
-        (*netmask) = atoi(ip_str + i + 1);
+    if (c == '/') {
+        // get the netmask (the netmask is the rest of *ip_str)
+        (*netmask) = atoi(ip_str + i);
     } else {
         // if there's only an ip (a host, not a network), it's as if the netmask
         // had a value of 32 (CIDR notation)
@@ -229,8 +214,6 @@ void get_port_from_str(RulePort *port, Tokens *tokens, int *i_ptr) {
         port->end_port = port->start_port;
     }
 }
-
-
 void get_option_settings(RuleOption *option, Tokens *tokens, int *i_ptr) {
     // example of syntax: option = ... :setting,setting;
 
@@ -255,6 +238,7 @@ void get_option_settings(RuleOption *option, Tokens *tokens, int *i_ptr) {
     // increase *i_ptr to account for the ';'
     (*i_ptr)++;
 }
+
 
 void inverse_negation_ip(RuleIpv4 **ip_ptr, int *nb_ip, Tokens *tokens,
                          int *i_ptr) {
@@ -293,7 +277,7 @@ void get_ip_any(RuleIpv4 **ip_ptr, int *nb_ip, Tokens *tokens, int *i_ptr) {
     // 1. increment *i_ptr, add a new ip
     (*i_ptr)++;
     increase_nb_ip(ip_ptr, nb_ip);
-    RuleIpv4 *ip = (*ip_ptr) + ((*nb_ip) - 1) * sizeof(RuleIpv4);
+    RuleIpv4 *ip = (*ip_ptr) + ((*nb_ip) - 1);
 
     // set the ip's fields
     ip->negation = false;
@@ -305,7 +289,7 @@ void get_port_any(RulePort **port_ptr, int *nb_ports, Tokens *tokens,
     // increment *i_ptr, add a new port
     (*i_ptr)++;
     increase_nb_ports(port_ptr, nb_ports);
-    RulePort *port = (*port_ptr) + ((*nb_ports) - 1) * sizeof(RulePort);
+    RulePort *port = (*port_ptr) + ((*nb_ports) - 1);
 
     // set the port's fields
     port->negation = false;
@@ -391,6 +375,7 @@ void get_rules_port(RulePort **port_ptr, int *nb_ports, Tokens *tokens,
         get_port_address(port_ptr, nb_ports, tokens, i_ptr);
     }
 }
+
 
 void get_rule_action(Rule *rule, Tokens *tokens, int *i_ptr) {
     if (strcmp(tokens->tokens[*i_ptr], "alert") == 0) {
@@ -502,6 +487,7 @@ void get_rule_options(Rule *rule, Tokens *tokens, int *i_ptr) {
     (*i_ptr)++;
 }
 
+
 void extract_rules(Rule **rules_ptr, int *nb_rules, Tokens *tokens) {
     int i = 0;
     while (i < tokens->nb_tokens) {
@@ -545,7 +531,7 @@ int read_rules(FILE *file, Rule **rules_ptr, int *count) {
     // 2. close the file handle
     int error_code = fclose(file);
     if (error_code != not_error) {
-        print_error(rules_file_not_closed);
+        print_error(RULES_FILE_NOT_CLOSED_ERROR);
         return RULES_FILE_NOT_CLOSED_ERROR;
     }
 
@@ -557,7 +543,7 @@ int read_rules(FILE *file, Rule **rules_ptr, int *count) {
         free(tokens.tokens[i]);
     }
     free(tokens.tokens);
-    
+
     return not_error;
 }
 

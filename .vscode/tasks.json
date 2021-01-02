@@ -12,6 +12,7 @@
                 "/home/user/Downloads/project/main.c",
                 "/home/user/Downloads/project/populate.c",
                 "/home/user/Downloads/project/rules.c",
+                "/home/user/Downloads/project/error.c",
                 "-lpcap",
             ],
             "options": {

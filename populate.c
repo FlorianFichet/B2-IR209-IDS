@@ -7,15 +7,14 @@
 
 
 uint16_t convert_endianess_16bits(uint16_t nb) {
-    uint16_t result = ((nb >> 8)) | ((nb << 8));
+    uint16_t result = (nb >> 8) | (nb << 8);
     return result;
 }
 uint32_t convert_endianess_32bits(uint32_t nb) {
-    uint32_t result = ((nb >> 24))                // move 1-st byte to 4-th byte
-                      | ((nb << 24))              // move 4-th byte to 1-st byte
-                      | ((nb >> 8) & 0x0000ff00)  // move 2-nd byte to 3-rd byte
-                      |
-                      ((nb << 8) & 0x00ff0000);  // move 3-rd byte to 2-nd byte
+    uint32_t result = ((nb >> 24))                 // move 1-st byte to 4-th byte
+                      | ((nb << 24))               // move 4-th byte to 1-st byte
+                      | ((nb >> 8) & 0x0000ff00)   // move 2-nd byte to 3-rd byte
+                      | ((nb << 8) & 0x00ff0000);  // move 3-rd byte to 2-nd byte
     return result;
 }
 
@@ -503,7 +502,8 @@ void print_ipv4_datagram_header(Ipv4Datagram *ipv4) {
     printf("    flag reserved: %u\n", IP_FLAG_VALUE(ipv4, IP_RF));
     printf("    flag don't fragment: %u\n", IP_FLAG_VALUE(ipv4, IP_DF));
     printf("    flag more fragments: %u\n", IP_FLAG_VALUE(ipv4, IP_MF));
-    printf("    fragment offset: %u\n", IP_OFFSET_VALUE(ipv4));
+    printf("    fragment offset: %u\n",
+           convert_endianess_16bits(IP_OFFSET_VALUE(ipv4)));
     printf("    time to live: %u\n", ipv4->ip_time_to_live);
     printf("    protocol: %u -- %s\n", ipv4->ip_protocol, protocol_name);
     printf("    header checksum: %u\n", ipv4->ip_checksum);

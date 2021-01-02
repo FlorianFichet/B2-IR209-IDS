@@ -28,6 +28,7 @@
 #define IP_MF 0x2000          /* more fragments flag */
 #define IP_OFFSET_MASK 0x1fff /* mask for fragmenting bits */
 
+// NOTE: the endianness should be converted after using IP_OFFSET_VALUE
 #define IP_OFFSET_VALUE(ip) (((ip)->ip_offset_and_flags) & (IP_OFFSET_MASK))
 #define IP_FLAG_VALUE(ip, mask) ((((ip)->ip_offset_and_flags) & (mask)) ? 1 : 0)
 
@@ -66,8 +67,8 @@ struct ethernet_frame {
 ///////////////////////////////////////////////////////////////////////////////
 // NOTE: the order of the fields might seem weird, it's because of how the   //
 //       compiler places the fields                                          //
-//         0       1       2       3       4                                 //
-//         0123456701234567012345670123456701234567                          //
+//         0       1       2       3                                         //
+//         01234567012345670123456701234567                                  //
 // ip:     |ver|len|...                                                      //
 // struct: |len|ver|...                                                      //
 ///////////////////////////////////////////////////////////////////////////////
