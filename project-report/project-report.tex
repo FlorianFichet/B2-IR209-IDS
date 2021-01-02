@@ -392,7 +392,7 @@ Les 3 fonctions de ce fichier qui ont leur définition dans le header \textit{po
 \begin{itemize}
     \item \textit{populate\_packet}, organise les informations à partir de la trame brute
     \item \textit{print\_packet\_headers}, affiche les headers des protocols utilisés dans le paquet
-    \item \textit{print\_packet\_data}, affiche les données contenues dans le protocole de dernière couche (HTTP, TLS, TCP ou UDP)
+    \item \textit{print\_packet\_data}, affiche les données contenues dans le protocole de dernière couche (HTTP, TLS, FTP, TCP ou UDP)
 \end{itemize}
 La fonction la plus importante de ce fichier est évidemment la fonction \textit{populate\_packet} qui va appeler d'autres fonctions \textit{populate} comme représenté sur la figure \ref{fig:orgpopulate}.
 \begin{figure}[H]
@@ -512,6 +512,21 @@ Il y a aussi quelques fonctions à noter dans le fichier \textit{main.c}:
     \item \textit{parse\_arguments}, analyse les arguments donnés en ligne de commande,
     \item \textit{write\_syslog}, écrit un message dans syslog.
 \end{itemize}
+
+
+
+
+
+\subsection{Fichier \textit{error.c}}
+
+
+
+Ce fichier ne comporte qu’une seule fonction, \textit{print\_error}. Cette fonction a pour but d’afficher un message d’erreur en rapport à l’erreur rencontré dans le programme IDS. \\
+Cette fonction a sa définition dans le fichier \textit{error.h}. Celui-ci comporte également:
+\begin{itemize}
+    \item Une énumération \textit{Error\_type}, qui liste les différentes erreurs que le programme peut rencontrer.
+\end{itemize}
+Lorsqu’une fonction du programme rencontrera une erreur, elle renverra une valeur de type \textit{int} contenue dans l’énumération. Une fonction qui se termine sans erreur renvoie généralement la valeur 0. Dans l’énumération, \textit{not\_error} équivaut à 0, nous pouvons donc renvoyer \textit{not\_error} à la fin d’une fonction pour plus de clarté.
 
 
 
