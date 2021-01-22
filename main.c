@@ -185,6 +185,9 @@ void get_rule_protocols_from_packet(RuleProtocol *protocols, Packet *packet) {
         case PP_Tls:
             protocols[3] = RP_Tls;
             break;
+        case PP_Ftp:
+            protocols[3] = RP_Ftp;
+            break;
         default:
             protocols[3] = RP_No_Protocol;
             break;
@@ -463,7 +466,8 @@ void packet_handler(u_char *user_args, const struct pcap_pkthdr *packet_header,
 
     // free the packet's application header
     if (packet.application_header != NULL &&
-        packet.application_protocol != PP_None) {
+        packet.application_protocol != PP_None &&
+        packet.application_protocol != PP_Ftp) {
         free(packet.application_header);
     }
 }
